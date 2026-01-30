@@ -1,0 +1,26 @@
+fastapi==0.128.0
+uvicorn[standard]==0.40.0
+motor==3.7.1
+beanie==2.0.0
+redis==7.1.0
+celery==5.6.1
+email-validator==2.3.0
+pydantic==2.12.5
+pydantic-settings==2.12.0
+python-multipart==0.0.21
+python-jose[cryptography]==3.5.0
+passlib[bcrypt]==1.7.4
+fastapi-mail==1.6.1
+pyotp==2.9.0
+qrcode==8.2
+python-dotenv==1.2.1
+bcrypt==3.2.2
+dnspython==2.8.0
+aiosmtplib==5.0.0
+gunicorn==22.0.0  # Added for production
+httpx==0.28.1
+itsdangerous==2.2.0
+jinja2==3.1.6
+python-dateutil==2.9.0.post0
+watchfiles==1.1.1 # For dev reload
+websockets==15.0.1

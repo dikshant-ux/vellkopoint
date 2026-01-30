@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - waypoint-network
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - waypoint-network
+
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/waypoint_db
+      - REDIS_URL=redis://redis:6379/0
+      - FRONTEND_URL=http://localhost:3000
+      - ENVIRONMENT=development
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - waypoint-network
+    volumes:
+      - ./backend:/app
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+      - WATCHPACK_POLLING=true
+    depends_on:
+      - backend
+    networks:
+      - waypoint-network
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+
+networks:
+  waypoint-network:
+    driver: bridge
+
+volumes:
+  mongodb_data:

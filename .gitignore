@@ -1,0 +1,47 @@
+# Python / Backend
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.pytest_cache/
+.mypy_cache/
+celerybeat-schedule
+
+# Environment Variables (CRITICAL)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+# Exception: Do not ignore example files
+!.env.example
+
+# NodeJS / Frontend (redundant but safe)
+node_modules/
+dist/
+.next/
+build/
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# OS
+Thumbs.db
