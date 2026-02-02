@@ -95,13 +95,15 @@ export function LoginForm() {
                 }
             });
 
-            login(res.data.access_token, {
-                id: res.data.user_id,
-                email: data.email,
-                full_name: res.data.full_name,
-                is_verified: res.data.is_verified,
-                is_two_factor_enabled: res.data.is_two_factor_enabled
-            });
+            // 1. Set token immediately so subsequent requests work
+            localStorage.setItem("accessToken", res.data.access_token);
+
+            // 2. Fetch full user profile (with permissions) BEFORE redirecting
+            // This ensures the dashboard has the correct permissions loaded
+            const meRes = await api.get("/auth/me");
+
+            // 3. Update context with full user data
+            login(res.data.access_token, meRes.data);
 
             toast.success("Welcome back!");
             router.push("/");
@@ -119,7 +121,6 @@ export function LoginForm() {
             } else if (error.response?.status === 401 || error.response?.status === 404) {
                 setServerError(msg);
             } else {
-                console.error("Login error:", error);
                 toast.error(msg);
             }
         } finally {

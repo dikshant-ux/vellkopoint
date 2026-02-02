@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Destination Rejected</h2>
+<p>Hi,</p>
+<p>Your destination <strong>{{ destination_name }}</strong> has been rejected by {{ rejecter_email }}.</p>
+<p><strong>Reason:</strong> {{ reason }}</p>
+<p>Please review the details and submit a new request if needed.</p>
+<br>
+<p>Best regards,<br>Vellkopoint Team</p>
+{% endblock %}

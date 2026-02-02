@@ -3,6 +3,7 @@ from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
 from pydantic import EmailStr
 from app.core.config import settings
 from pathlib import Path
+from jinja2 import Environment, FileSystemLoader
 
 conf = ConnectionConfig(
     MAIL_USERNAME=settings.SMTP_USER,
@@ -18,6 +19,9 @@ conf = ConnectionConfig(
 )
 
 fastmail = FastMail(conf)
+
+# Setup Jinja2 environment
+template_env = Environment(loader=FileSystemLoader(Path(__file__).parent.parent / "templates"))
 
 async def send_email(
     to_email: str,
@@ -60,22 +64,13 @@ async def send_email_template(
     template_name: str,
     template_body: Dict[str, Any]
 ):
-    # In a real app we'd use Jinja2 templates. For now we'll construct a simple body.
-    # This is a placeholder for a more robust template system
+    template = template_env.get_template(template_name)
     
-    html_content = f"""
-    <html>
-        <body>
-            <h1>{subject}</h1>
-            <p>Hello,</p>
-            <p>{template_body.get('message', '')}</p>
-            <br>
-            <a href="{template_body.get('link', '#')}">{template_body.get('link_text', 'Click here')}</a>
-            <br>
-            <p>Best regards,<br>{settings.PROJECT_NAME}</p>
-        </body>
-    </html>
-    """
+    # Add project_name to context if not present
+    if "project_name" not in template_body:
+        template_body["project_name"] = settings.PROJECT_NAME
+        
+    html_content = template.render(**template_body)
 
     message = MessageSchema(
         subject=subject,
@@ -99,7 +94,7 @@ async def send_email_template(
 
 async def send_verification_email(email_to: EmailStr, token: str):
     from app.tasks.email_tasks import send_email_task
-    link = f"{settings.FRONTEND_URL}/verify-email?token={token}"
+    link = f"{settings.get_public_frontend_url}/verify-email?token={token}"
     send_email_task.delay(
         email_to=[email_to],
         subject=f"Verify your {settings.PROJECT_NAME} account",
@@ -113,7 +108,7 @@ async def send_verification_email(email_to: EmailStr, token: str):
 
 async def send_reset_password_email(email_to: EmailStr, token: str):
     from app.tasks.email_tasks import send_email_task
-    link = f"{settings.FRONTEND_URL}/reset-password?token={token}"
+    link = f"{settings.get_public_frontend_url}/reset-password?token={token}"
     send_email_task.delay(
         email_to=[email_to],
         subject="Password Reset Request",
@@ -133,31 +128,21 @@ async def send_invitation_email(
     invited_by: str,
     role: str
 ):
-    from app.tasks.email_tasks import send_raw_email_task
+    from app.tasks.email_tasks import send_email_task
     
     # Frontend URL for accepting invitation
-    invitation_url = f"{settings.FRONTEND_URL}/accept-invitation?token={invitation_token}"
+    invitation_url = f"{settings.get_public_frontend_url}/accept-invitation?token={invitation_token}"
     
-    html_content = f"""
-    <html>
-        <body>
-            <h2>Welcome to Waypoint!</h2>
-            <p>Hi {full_name},</p>
-            <p>You've been invited to join Waypoint by {invited_by} as a <strong>{role}</strong>.</p>
-            <p>Click the link below to accept your invitation and set your password:</p>
-            <p><a href="{invitation_url}">Accept Invitation</a></p>
-            <p>This invitation will expire in 24 hours.</p>
-            <p>If you didn't expect this invitation, you can safely ignore this email.</p>
-            <br>
-            <p>Best regards,<br>Waypoint Team</p>
-        </body>
-    </html>
-    """
-    
-    send_raw_email_task.delay(
-        to_email=email,
+    send_email_task.delay(
+        email_to=[email],
         subject="You've been invited to Waypoint",
-        html_content=html_content
+        template_name="invitation.html",
+        template_body={
+            "full_name": full_name,
+            "invited_by": invited_by,
+            "role": role,
+            "invitation_url": invitation_url
+        }
     )
 
 
@@ -172,45 +157,22 @@ async def send_destination_submitted_email(
     approve_link: str,
     reject_link: str
 ):
-    from app.tasks.email_tasks import send_raw_email_task
+    from app.tasks.email_tasks import send_email_task
     
-    html_content = f"""
-    <html>
-        <body>
-            <h2>New Destination Approval Required</h2>
-            <p>Hi {admin_name},</p>
-            <p>User <strong>{requester_email}</strong> has created a new destination that requires approval:</p>
-            <ul>
-                <li><strong>Destination Name:</strong> {destination_name}</li>
-                <li><strong>Type:</strong> {destination_type}</li>
-                <li><strong>URL:</strong> {destination_url}</li>
-                <li><strong>Customer:</strong> {customer_name}</li>
-            </ul>
-            <p>Please review and approve/reject this destination in the dashboard or use the buttons below:</p>
-            
-            <div style="margin: 30px 0;">
-                <a href="{approve_link}" 
-                   style="background-color: #16a34a; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-right: 10px; font-weight: bold;">
-                   Approve Destination
-                </a>
-                
-                <a href="{reject_link}" 
-                   style="background-color: #e11d48; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
-                   Reject
-                </a>
-            </div>
-            
-            <p style="font-size: 12px; color: #64748b;">If you are not an admin or this was sent in error, please ignore this email.</p>
-            <br>
-            <p>Best regards,<br>Waypoint Team</p>
-        </body>
-    </html>
-    """
-    
-    send_raw_email_task.delay(
-        to_email=admin_email,
+    send_email_task.delay(
+        email_to=[admin_email],
         subject="New Destination Approval Required",
-        html_content=html_content
+        template_name="destination_submitted.html",
+        template_body={
+            "admin_name": admin_name,
+            "requester_email": requester_email,
+            "destination_name": destination_name,
+            "destination_type": destination_type,
+            "destination_url": destination_url,
+            "customer_name": customer_name,
+            "approve_link": approve_link,
+            "reject_link": reject_link
+        }
     )
 
 
@@ -219,25 +181,16 @@ async def send_destination_approved_email(
     destination_name: str,
     approver_email: str
 ):
-    from app.tasks.email_tasks import send_raw_email_task
+    from app.tasks.email_tasks import send_email_task
     
-    html_content = f"""
-    <html>
-        <body>
-            <h2>Destination Approved</h2>
-            <p>Hi,</p>
-            <p>Your destination <strong>{destination_name}</strong> has been approved by {approver_email}.</p>
-            <p>You can now use this destination in your campaigns.</p>
-            <br>
-            <p>Best regards,<br>Waypoint Team</p>
-        </body>
-    </html>
-    """
-    
-    send_raw_email_task.delay(
-        to_email=requester_email,
+    send_email_task.delay(
+        email_to=[requester_email],
         subject="Destination Approved",
-        html_content=html_content
+        template_name="destination_approved.html",
+        template_body={
+            "destination_name": destination_name,
+            "approver_email": approver_email
+        }
     )
 
 
@@ -247,24 +200,15 @@ async def send_destination_rejected_email(
     rejecter_email: str,
     reason: str
 ):
-    from app.tasks.email_tasks import send_raw_email_task
+    from app.tasks.email_tasks import send_email_task
     
-    html_content = f"""
-    <html>
-        <body>
-            <h2>Destination Rejected</h2>
-            <p>Hi,</p>
-            <p>Your destination <strong>{destination_name}</strong> has been rejected by {rejecter_email}.</p>
-            <p><strong>Reason:</strong> {reason}</p>
-            <p>Please review the details and submit a new request if needed.</p>
-            <br>
-            <p>Best regards,<br>Waypoint Team</p>
-        </body>
-    </html>
-    """
-    
-    send_raw_email_task.delay(
-        to_email=requester_email,
+    send_email_task.delay(
+        email_to=[requester_email],
         subject="Destination Rejected",
-        html_content=html_content
+        template_name="destination_rejected.html",
+        template_body={
+            "destination_name": destination_name,
+            "rejecter_email": rejecter_email,
+            "reason": reason
+        }
     )

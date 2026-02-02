@@ -37,9 +37,9 @@ export default function Home() {
       setLastUpdated(new Date());
     } catch (error: any) {
       if (error.response && error.response.status === 403) {
-        console.warn("Analytics access denied: Missing permission");
+        // Analytics access denied: Missing permission
       } else {
-        console.error("Failed to fetch stats", error);
+        // Failed to fetch stats
       }
     } finally {
       setLoading(false);

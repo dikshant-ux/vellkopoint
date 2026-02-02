@@ -72,8 +72,14 @@ services:
       context: ./frontend
       dockerfile: Dockerfile.prod
     restart: always
-    env_file:
-      - ./frontend/.env.local # Or just pass env vars here
+    environment:
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
+      # - NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1 # This is static in Dockerfile unless we pass build args.
+      # But since we use standalone output, runtime vars work if not prefixed with NEXT_PUBLIC_ or we need another strategy.
+      # For now, let's rely on client-side JS being built correctly.
+      # env_file:
+      #   - ./frontend/.env.local # Optional: uncomment if you created this file
     depends_on:
       - backend
     networks:

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>New Destination Approval Required</h2>
+<p>Hi {{ admin_name }},</p>
+<p>User <strong>{{ requester_email }}</strong> has created a new destination that requires approval:</p>
+<ul>
+    <li><strong>Destination Name:</strong> {{ destination_name }}</li>
+    <li><strong>Type:</strong> {{ destination_type }}</li>
+    <li><strong>URL:</strong> {{ destination_url }}</li>
+    <li><strong>Customer:</strong> {{ customer_name }}</li>
+</ul>
+<p>Please review and approve/reject this destination in the dashboard or use the buttons below:</p>
+
+<div style="margin: 30px 0;">
+    <a href="{{ approve_link }}"
+        style="background-color: #16a34a; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-right: 10px; font-weight: bold;">
+        Approve Destination
+    </a>
+
+    <a href="{{ reject_link }}"
+        style="background-color: #e11d48; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+        Reject
+    </a>
+</div>
+
+<p style="font-size: 12px; color: #64748b;">If you are not an admin or this was sent in error, please ignore this email.
+</p>
+<br>
+<p>Best regards,<br>Vellkopoint Team</p>
+{% endblock %}

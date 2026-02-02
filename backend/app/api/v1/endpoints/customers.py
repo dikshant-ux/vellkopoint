@@ -310,8 +310,8 @@ async def create_destination(
                     destination_type=new_dest.type,
                     destination_url=new_dest.config.url,
                     customer_name=customer.name,
-                    approve_link=f"{settings.BACKEND_URL}{settings.API_V1_STR}/customers/destinations/{new_dest.id}/email-action?action=approve&token={hashlib.sha256(f'{new_dest.id}{settings.SECRET_KEY}'.encode()).hexdigest()}",
-                    reject_link=f"{settings.BACKEND_URL}{settings.API_V1_STR}/customers/destinations/{new_dest.id}/email-action?action=reject&token={hashlib.sha256(f'{new_dest.id}{settings.SECRET_KEY}'.encode()).hexdigest()}"
+                    approve_link=f"{settings.get_public_backend_url}{settings.API_V1_STR}/customers/destinations/{new_dest.id}/email-action?action=approve&token={hashlib.sha256(f'{new_dest.id}{settings.SECRET_KEY}'.encode()).hexdigest()}",
+                    reject_link=f"{settings.get_public_backend_url}{settings.API_V1_STR}/customers/destinations/{new_dest.id}/email-action?action=reject&token={hashlib.sha256(f'{new_dest.id}{settings.SECRET_KEY}'.encode()).hexdigest()}"
                 )
         except Exception as e:
             logger.error(f"Failed to send approval notification email: {e}")
@@ -854,7 +854,7 @@ async def email_destination_action(
                 <div style="max-width: 500px; margin: 0 auto; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
                     <h2 style="color: #e11d48; margin-bottom: 20px;">Invalid or Expired Link</h2>
                     <p style="color: #475569;">The link you followed is invalid or has expired for security reasons.</p>
-                    <a href="{settings.FRONTEND_URL}/" style="display: inline-block; margin-top: 20px; color: #3b82f6; text-decoration: none;">Return to Dashboard</a>
+                    <a href="{settings.get_public_frontend_url}/" style="display: inline-block; margin-top: 20px; color: #3b82f6; text-decoration: none;">Return to Dashboard</a>
                 </div>
             </body>
         </html>
@@ -871,7 +871,7 @@ async def email_destination_action(
                 <div style="max-width: 500px; margin: 0 auto; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);">
                     <h2 style="color: #334155; margin-bottom: 20px;">Action Already Taken</h2>
                     <p style="color: #475569;">This destination has already been <strong>{dest.approval_status}</strong>.</p>
-                    <a href="{settings.FRONTEND_URL}/" style="display: inline-block; margin-top: 20px; color: #3b82f6; text-decoration: none;">Go to Dashboard</a>
+                    <a href="{settings.get_public_frontend_url}/" style="display: inline-block; margin-top: 20px; color: #3b82f6; text-decoration: none;">Go to Dashboard</a>
                 </div>
             </body>
         </html>
@@ -904,7 +904,7 @@ async def email_destination_action(
                     <h2 style="color: #16a34a; margin-bottom: 20px;">Successfully Approved!</h2>
                     <p style="color: #475569;">The destination <strong>{dest.name}</strong> for <strong>{customer.name if customer else 'N/A'}</strong> has been activated.</p>
                     <p style="color: #475569;">The requester has been notified.</p>
-                    <a href="{settings.FRONTEND_URL}/" style="display: inline-block; margin-top: 20px; color: #3b82f6; text-decoration: none;">Go to Dashboard</a>
+                    <a href="{settings.get_public_frontend_url}/" style="display: inline-block; margin-top: 20px; color: #3b82f6; text-decoration: none;">Go to Dashboard</a>
                 </div>
             </body>
         </html>
@@ -935,7 +935,7 @@ async def email_destination_action(
                     <h2 style="color: #e11d48; margin-bottom: 20px;">Destination Rejected</h2>
                     <p style="color: #475569;">The destination <strong>{dest.name}</strong> has been rejected.</p>
                     <p style="color: #475569;">The requester has been notified.</p>
-                    <a href="{settings.FRONTEND_URL}/" style="display: inline-block; margin-top: 20px; color: #3b82f6; text-decoration: none;">Go to Dashboard</a>
+                    <a href="{settings.get_public_frontend_url}/" style="display: inline-block; margin-top: 20px; color: #3b82f6; text-decoration: none;">Go to Dashboard</a>
                 </div>
             </body>
         </html>

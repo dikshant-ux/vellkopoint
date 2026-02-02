@@ -42,35 +42,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // These paths do not require authentication and should not trigger redirects on auth failure
     const PUBLIC_PATHS = ["/login", "/signup", "/verify-email", "/forgot-password", "/reset-password", "/accept-invitation"];
 
+    // 1. Initial Data Fetching (Runs only once on mount)
     useEffect(() => {
         const initAuth = async () => {
-            console.log("AuthContext: Initializing...");
             const token = localStorage.getItem("accessToken");
 
             if (!token) {
-                // Check if we are on a public page BEFORE attempting refresh
-                const isPublic = PUBLIC_PATHS.some(p => pathname?.startsWith(p));
-
+                // If on a public path and no token, don't even try to refresh.
+                // Just stop loading and let the user be a guest.
+                const isPublic = PUBLIC_PATHS.some(p => window.location.pathname.startsWith(p));
                 if (isPublic) {
-                    console.log("AuthContext: Public path detected, skipping refresh...");
                     setIsLoading(false);
                     return;
                 }
 
-                console.log("AuthContext: No token found, attempting refresh...");
                 try {
                     const res = await axiosInstance.post("/auth/refresh");
-                    console.log("AuthContext: Refresh successful", res.data);
                     const { access_token } = res.data;
                     localStorage.setItem("accessToken", access_token);
 
                     // Fetch me
                     const meRes = await axiosInstance.get("/auth/me");
-                    console.log("AuthContext: Fetched user", meRes.data);
                     setUser(meRes.data);
                 } catch (e) {
-                    console.warn("AuthContext: Refresh/Init failed (User likely guest)", e);
-
+                    // Refresh/Init failed (User likely guest)
                     // Clear artifacts
                     localStorage.removeItem("accessToken");
                     setUser(null);
@@ -81,23 +76,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     } catch (clearErr) {
                         console.error("Failed to clear session", clearErr);
                     }
-
-                    // We already checked isPublic above, so if we are here, it's a protected path
-                    console.log("AuthContext: Redirecting to login...");
-                    window.location.href = "/login";
                 }
                 setIsLoading(false);
                 return;
             }
 
-            console.log("AuthContext: Token found, fetching user...");
             try {
                 const res = await axiosInstance.get("/auth/me");
-                console.log("AuthContext: Fetched user", res.data);
                 setUser(res.data);
             } catch (error) {
                 console.error("AuthContext: Fetch 'me' failed", error);
-
                 localStorage.removeItem("accessToken");
                 setUser(null);
 
@@ -107,18 +95,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 } catch (clearErr) {
                     console.error("Failed to clear session", clearErr);
                 }
-
-                const isPublic = PUBLIC_PATHS.some(p => pathname?.startsWith(p));
-                if (!isPublic) {
-                    window.location.href = "/login";
-                }
             } finally {
                 setIsLoading(false);
             }
         };
 
         initAuth();
-    }, [pathname]);
+    }, []);
+
+    // 2. Route Protection (Runs on path change)
+    useEffect(() => {
+        if (isLoading) return;
+
+        const isPublic = PUBLIC_PATHS.some(p => pathname?.startsWith(p));
+
+        // If user is not logged in and trying to access a protected route
+        if (!user && !isPublic) {
+            // Use window.location.href for a hard redirect to ensure state clean slate
+            // or router.push if we want valid client-side transition. 
+            // Using window.location.href as per original implementation for safety.
+            window.location.href = "/login";
+        }
+    }, [pathname, user, isLoading]);
 
     const login = (token: string, userData: User) => {
         localStorage.setItem("accessToken", token);

@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     
     FRONTEND_URL: str
     BACKEND_URL: str
+    PUBLIC_FRONTEND_URL: str | None = None
+    PUBLIC_BACKEND_URL: str | None = None
 
     # Security
     SECRET_KEY: str
@@ -52,5 +54,13 @@ class Settings(BaseSettings):
     class Config:
         case_sensitive = True
         env_file = ".env"
+
+    @property
+    def get_public_frontend_url(self) -> str:
+        return self.PUBLIC_FRONTEND_URL or self.FRONTEND_URL
+
+    @property
+    def get_public_backend_url(self) -> str:
+        return self.PUBLIC_BACKEND_URL or self.BACKEND_URL
 
 settings = Settings()

@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Destination Approved</h2>
+<p>Hi,</p>
+<p>Your destination <strong>{{ destination_name }}</strong> has been approved by {{ approver_email }}.</p>
+<p>You can now use this destination in your campaigns.</p>
+<br>
+<p>Best regards,<br>Vellkopoint Team</p>
+{% endblock %}

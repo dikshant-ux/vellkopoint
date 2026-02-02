@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Welcome to Waypoint!</h2>
+<p>Hi {{ full_name }},</p>
+<p>You've been invited to join Waypoint by {{ invited_by }} as a <strong>{{ role }}</strong>.</p>
+<p>Click the link below to accept your invitation and set your password:</p>
+<p><a href="{{ invitation_url }}">Accept Invitation</a></p>
+<p>This invitation will expire in 24 hours.</p>
+<p>If you didn't expect this invitation, you can safely ignore this email.</p>
+<br>
+<p>Best regards,<br>Vellkopoint Team</p>
+{% endblock %}
