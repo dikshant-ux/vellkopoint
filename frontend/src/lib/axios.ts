@@ -2,7 +2,8 @@ import axios from "axios";
 
 // Create an instance of axio
 const api = axios.create({
-    baseURL: process.env.NEXT_PUBLIC_API_URL,
+    // Fallback to relative path "/api/v1" which works with Nginx proxy in production
+    baseURL: process.env.NEXT_PUBLIC_API_URL || "/api/v1",
     headers: {
         "Content-Type": "application/json",
     },
