@@ -13,26 +13,27 @@ export function VerifyEmailUI({ token }: { token?: string }) {
     const [errorMessage, setErrorMessage] = useState("");
     const router = useRouter();
 
-    useEffect(() => {
+    const verifyToken = async () => {
         if (!token) {
             setStatus("error");
             setErrorMessage("Verification token is missing.");
             return;
         }
 
-        const verifyToken = async () => {
-            try {
-                // Small delay for better UX (prevents flash if too fast)
-                await new Promise(resolve => setTimeout(resolve, 1500));
-                await api.post("/auth/verify-email", { token });
-                setStatus("success");
-            } catch (error: any) {
-                console.error(error);
-                setStatus("error");
-                setErrorMessage(error.response?.data?.detail || "Invalid or expired verification link.");
-            }
-        };
+        setStatus("loading");
+        try {
+            // Small delay for better UX
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            await api.post("/auth/verify-email", { token });
+            setStatus("success");
+        } catch (error: any) {
+            console.error(error);
+            setStatus("error");
+            setErrorMessage(error.response?.data?.detail || "Invalid or expired verification link.");
+        }
+    };
 
+    useEffect(() => {
         verifyToken();
     }, [token]);
 
@@ -109,8 +110,8 @@ export function VerifyEmailUI({ token }: { token?: string }) {
                         <div className="flex flex-col gap-3 w-full mt-4">
                             <Button
                                 variant="outline"
-                                className="h-12 border-white/10 text-white hover:bg-white/5 rounded-xl flex items-center justify-center"
-                                onClick={() => router.refresh()}
+                                className="h-12 border-white/10 bg-white text-black hover:bg-white/90 rounded-xl flex items-center justify-center font-medium transition-colors"
+                                onClick={verifyToken}
                             >
                                 <RefreshCw className="size-4 mr-2" />
                                 Try Again

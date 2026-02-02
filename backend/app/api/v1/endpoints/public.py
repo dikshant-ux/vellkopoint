@@ -46,10 +46,14 @@ async def get_public_source_docs(source_id: str, response: Response):
             "required": sf.is_required
         })
         
-    # Construct ingestion URL (assuming common pattern, in production this should be in config)
-    # We use a placeholder that frontend will replace with actual window.location.host if needed
-    # but backend can provide the path
-    ingest_url = f"/source/{source.id}/ingest?api_key={source.api_key}"
+    # Construct absolute ingestion URL using configured public backend URL
+    from app.core.config import settings
+    base_url = settings.get_public_backend_url.rstrip("/")
+    # Check if API_V1_STR is already in base_url to avoid duplication if it's included in BACKEND_URL
+    if "/api/v1" not in base_url:
+        base_url = f"{base_url}{settings.API_V1_STR}"
+        
+    ingest_url = f"{base_url}/source/{source.id}/ingest?api_key={source.api_key}"
 
     return PublicSourceDocs(
         name=source.name,

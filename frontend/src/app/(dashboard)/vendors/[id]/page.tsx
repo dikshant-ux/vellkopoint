@@ -33,6 +33,7 @@ import { DeleteConfirmation } from "@/components/ui/delete-confirmation";
 import { MoreHorizontal } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
 import { Permission } from "@/lib/permissions";
+import { DateDisplay } from "@/components/ui/date-display";
 
 interface Source {
     id: string;
@@ -414,7 +415,7 @@ export default function VendorDetailsPage({ params }: { params: Promise<{ id: st
                                             {s.readable_id || s.source_id.slice(0, 8)}
                                         </TableCell>
                                         <TableCell className="font-medium">{s.source_name}</TableCell>
-                                        <TableCell>{s.create_date}</TableCell>
+                                        <TableCell><DateDisplay date={s.create_date} dateFormat="PP p" /></TableCell>
                                         <TableCell className="font-mono text-xs max-w-[260px] truncate">{s.auth_key}</TableCell>
                                         <TableCell>{s.source_group || "-"}</TableCell>
                                         <TableCell>{s.dupe_check}</TableCell>

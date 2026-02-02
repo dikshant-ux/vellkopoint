@@ -67,8 +67,11 @@ export default function PublicDocsPage({ params }: { params: Promise<{ id: strin
     }
 
     // Use the API URL from environment
-    const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
-    const fullIngestUrl = `${apiBase}${data.ingest_url}`;
+    const apiBase = process.env.NEXT_PUBLIC_API_URL;
+    // Check if ingest_url is already absolute (backend might return full URL now)
+    const fullIngestUrl = data.ingest_url.startsWith('http')
+        ? data.ingest_url
+        : `${apiBase}${data.ingest_url}`;
 
     // Generate Examples
 

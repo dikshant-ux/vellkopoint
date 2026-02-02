@@ -100,8 +100,7 @@ export function SignupForm() {
                     We&apos;ve sent a verification link to your email address. Please check your inbox to activate your account.
                 </p>
                 <Button
-                    variant="outline"
-                    className="mt-6 border-white/20 text-white hover:bg-white/10"
+                    className="mt-6 bg-white text-black hover:bg-white/90 font-medium"
                     onClick={() => router.push("/login")}
                 >
                     Return to Login

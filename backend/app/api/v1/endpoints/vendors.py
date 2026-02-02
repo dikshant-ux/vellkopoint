@@ -437,7 +437,7 @@ async def list_vendor_source_stats(
         row = stats_by_source_id.get(source.id, {})
         
         dupe_check_status = "Enabled" if getattr(source.config, "dupe_check", False) else "Disabled"
-        create_date = source.created_at.strftime("%Y-%m-%d") if source.created_at else ""
+        create_date = source.created_at.isoformat() if source.created_at else ""
         source_group = getattr(source.config, "vendor_group", None)
 
         items.append(

@@ -45,6 +45,7 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DataMaskingAlert, LimitedViewBadge } from "@/components/leads/data-masking-indicators";
+import { DateDisplay } from "@/components/ui/date-display";
 
 interface RoutingResult {
     customer_id: string;
@@ -438,7 +439,7 @@ export default function LeadsPage() {
                                                 Created At
                                             </td>
                                             <td className="px-4 py-3 text-sm font-medium text-slate-900">
-                                                {format(new Date(selectedLead.created_at), "PPP p")}
+                                                <DateDisplay date={selectedLead.created_at} dateFormat="PPP p" />
                                             </td>
                                         </tr>
                                         <tr className="bg-white">

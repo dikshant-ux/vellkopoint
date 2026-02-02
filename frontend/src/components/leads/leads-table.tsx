@@ -12,7 +12,8 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { format } from "date-fns";
+
+import { DateDisplay } from "@/components/ui/date-display";
 
 interface RoutingResult {
     customer_id: string;
@@ -147,7 +148,7 @@ export function LeadsTable({ leads, vendors, sources, onViewDetails, isLoading, 
                                     {lead.external_id || lead.lead_id || `LD-${(typeof lead.id === 'string' ? lead.id : (typeof lead._id === 'string' ? lead._id : "")).slice(-6).toUpperCase()}`}
                                 </TableCell>
                                 <TableCell className="text-xs text-slate-600">
-                                    {format(new Date(lead.created_at), "MMM d, yyyy HH:mm:ss")}
+                                    <DateDisplay date={lead.created_at} dateFormat="MMM d, yyyy HH:mm:ss" />
                                 </TableCell>
                                 <TableCell className="font-medium text-slate-900">
                                     {lead.data.email || lead.data.phone || lead.data.full_name || "Unknown Lead"}

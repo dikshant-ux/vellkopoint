@@ -27,6 +27,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { RolesTab } from "@/components/roles/roles-tab"
 import { useAuth } from "@/context/auth-context"
 import { Permission } from "@/lib/permissions"
+import { DateDisplay } from "@/components/ui/date-display"
 
 interface User {
     id: string
@@ -271,7 +272,7 @@ export default function UsersPage() {
                                                         )}
                                                     </TableCell>
                                                     <TableCell className="text-sm text-gray-500">
-                                                        {new Date(user.created_at).toLocaleDateString()}
+                                                        <DateDisplay date={user.created_at} dateFormat="PP p" />
                                                     </TableCell>
                                                     <TableCell className="text-right">
                                                         <DropdownMenu>
