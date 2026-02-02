@@ -51,13 +51,44 @@ services:
     networks:
       - waypoint-network
 
-  # Background Worker
-  worker:
+  # Background Workers
+  # 1. High Priority: Ingestion
+  worker-leads:
     build:
       context: ./backend
       dockerfile: Dockerfile.prod
     restart: always
-    command: celery -A app.worker worker --loglevel=info
+    command: celery -A app.worker worker -Q leads --loglevel=info --concurrency=4
+    env_file:
+      - ./backend/.env
+    depends_on:
+      - backend
+      - redis
+    networks:
+      - waypoint-network
+
+  # 2. Default: Emails, Cleanup, etc.
+  worker-default:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    restart: always
+    command: celery -A app.worker worker -Q default,emails,celery --loglevel=info --concurrency=2
+    env_file:
+      - ./backend/.env
+    depends_on:
+      - backend
+      - redis
+    networks:
+      - waypoint-network
+
+  # 3. Scheduler
+  beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    restart: always
+    command: celery -A app.worker beat --loglevel=info
     env_file:
       - ./backend/.env
     depends_on:

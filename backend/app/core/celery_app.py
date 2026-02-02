@@ -7,13 +7,13 @@ celery_app = Celery(
     backend=settings.REDIS_CELERY_URL
 )
 
-# Task routing - disabled for development (Windows solo pool compatibility)
-# For production, uncomment and start workers with: celery -A app.worker worker -Q queue_name
-# celery_app.conf.task_routes = {
-#     'app.tasks.email_tasks.*': {'queue': 'emails'},
-#     'app.tasks.lead_tasks.process_lead': {'queue': 'leads'},
-#     'app.tasks.lead_tasks.*': {'queue': 'default'},
-# }
+# Task routing - Enabled only for Production
+if settings.ENVIRONMENT == "production":
+    celery_app.conf.task_routes = {
+        'app.tasks.email_tasks.*': {'queue': 'emails'},
+        'app.tasks.lead_tasks.process_lead_task': {'queue': 'leads'},
+        'app.tasks.lead_tasks.*': {'queue': 'default'}, # Cleanup and other tasks
+    }
 
 celery_app.conf.update(
     task_serializer="json",
@@ -44,6 +44,15 @@ celery_app.conf.update(
     # Monitoring
     worker_send_task_events=True,
     task_send_sent_event=True,
+
+    # Scheduled Tasks (Celery Beat)
+    beat_schedule={
+        "cleanup-old-payloads-daily": {
+            "task": "app.tasks.lead_tasks.cleanup_old_payloads_task",
+            "schedule": 86400.0, # Run every 24 hours (seconds)
+            # "schedule": crontab(hour=0, minute=0), # Better alternative if crontab usage allowed, using seconds for simplicity/windows compat
+        },
+    }
 )
 
 # Autodiscover tasks in the tasks directory

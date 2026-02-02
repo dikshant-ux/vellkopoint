@@ -30,13 +30,21 @@ class RoutingEngine:
                 if not customer.campaigns:
                     continue
                     
-                # Manually extract campaign IDs from Links
-                # customer.campaigns contains Link objects which have .ref.id
+                # Manually extract campaign IDs
+                # customer.campaigns can be list of strings (IDs) or Link objects
+                from beanie import PydanticObjectId
                 campaign_ids = []
                 for link in customer.campaigns:
-                    if hasattr(link, 'ref') and link.ref.id:
+                    if isinstance(link, str):
+                        try:
+                            campaign_ids.append(PydanticObjectId(link))
+                        except:
+                            pass
+                    elif hasattr(link, 'ref') and link.ref.id:
                         campaign_ids.append(link.ref.id)
                 
+                logger.info(f"Customer {customer.name} has linked campaign IDs: {campaign_ids}")
+
                 if not campaign_ids:
                     continue
 

@@ -125,6 +125,7 @@ class UnknownFieldService:
             criteria = {"sources.id": source_id, "tenant_id": tenant_id}
         # elif scope == "global": criteria = {"tenant_id": tenant_id}
 
+        affected_source_ids = []
         vendors_to_update = await Vendor.find(criteria).to_list()
         for v in vendors_to_update:
             v_updated = False
@@ -133,22 +134,28 @@ class UnknownFieldService:
                 if scope == "source" and s.id != source_id:
                     continue
                 
+                source_modified = False
+                
                 # Check for unmapped rule matching the vendor_field_name
                 rule = next((r for r in s.mapping.rules if r.source_field == vendor_field_name), None)
                 if rule and rule.target_field is None:
                     rule.target_field = target_system_field
-                    v_updated = True
+                    source_modified = True
                 
                 # If it's the initiating source and rule DOESN'T exist, add it
                 if s.id == source_id and not rule:
                     from app.models.mapping import MappingRule
                     s.mapping.rules.append(MappingRule(source_field=vendor_field_name, target_field=target_system_field))
+                    source_modified = True
+                
+                if source_modified:
                     v_updated = True
+                    affected_source_ids.append(s.id)
             
             if v_updated:
                 await v.save()
 
-        # 3. Update UnknownField record(s) - Filter by Tenant
+        # 3. Delete UnknownField record(s) - Filter by Tenant
         uf_criteria = {"field_name": vendor_field_name, "status": "unmapped", "tenant_id": tenant_id}
         
         # ... existing logic ...
@@ -156,7 +163,7 @@ class UnknownFieldService:
         if scope == "source":
             uf_criteria["source_id"] = source_id
 
-        await UnknownField.find(uf_criteria).update({"$set": {"status": "mapped"}})
+        await UnknownField.find(uf_criteria).delete()
             
         # 4. Universal Mapping (Scoped Alias)
         sys_field_doc = await SystemField.find_one(
@@ -187,6 +194,12 @@ class UnknownFieldService:
                 sys_field_doc.aliases.append(new_alias)
                 await sys_field_doc.save()
             
+        # 5. Trigger Retroactive Processing
+        if affected_source_ids:
+            from app.tasks.lead_tasks import reprocess_source_leads_task
+            for sid in affected_source_ids:
+                 reprocess_source_leads_task.delay(sid, tenant_id)
+
         return {"status": "success", "field": target_system_field}
 
     @staticmethod
