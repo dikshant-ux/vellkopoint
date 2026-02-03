@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 1
     REFRESH_TOKEN_EXPIRE_DAYS_REMEMBER_ME: int = 30
     ENVIRONMENT: str = "development" # "development" or "production"
+    
+    # Cookie Security
+    # Default to False to allow IP/HTTP access. Set to True in production with SSL.
+    COOKIE_SECURE: bool = False
 
     # SMTP Settings
     SMTP_SERVER: str

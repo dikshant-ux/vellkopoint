@@ -191,7 +191,7 @@ async def login(
         key="refresh_token",
         value=refresh_token,
         httponly=True,
-        secure=settings.ENVIRONMENT == "production",
+        secure=settings.COOKIE_SECURE,
         samesite="lax",
         max_age=int(refresh_token_expires.total_seconds())
     )
@@ -285,7 +285,7 @@ async def refresh_token(request: Request, response: Response):
             key="refresh_token",
             value=new_refresh_token,
             httponly=True,
-            secure=settings.ENVIRONMENT == "production",
+            secure=settings.COOKIE_SECURE,
             samesite="lax",
             max_age=int(refresh_token_expires.total_seconds())
         )
