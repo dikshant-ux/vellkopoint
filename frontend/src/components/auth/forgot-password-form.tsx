@@ -133,7 +133,7 @@ export function ForgotPasswordForm() {
                         <Link href="/login" className="w-full">
                             <Button
                                 variant="outline"
-                                className="w-full h-12 border-white/10 text-white hover:bg-white/5 rounded-xl"
+                                className="w-full h-12 border-white/10 bg-transparent text-white hover:bg-primary hover:text-white rounded-xl"
                             >
                                 Back to Login
                             </Button>
