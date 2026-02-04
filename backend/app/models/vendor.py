@@ -76,7 +76,7 @@ class Source(BaseModel):
     mapping: SourceMapping = SourceMapping()
     normalization: SourceNormalization = SourceNormalization()
     rules: SourceRules = SourceRules()
-    created_at: datetime = Field(default_factory=datetime.now)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
 class Vendor(Document):
     tenant_id: str
