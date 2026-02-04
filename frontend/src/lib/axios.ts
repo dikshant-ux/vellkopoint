@@ -3,7 +3,14 @@ import axios from "axios";
 // Create an instance of axio
 const api = axios.create({
     // Fallback to relative path "/api/v1" which works with Nginx proxy in production
-    baseURL: process.env.NEXT_PUBLIC_API_URL || "/api/v1",
+    baseURL: (function () {
+        let url = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
+        // If running in browser and on HTTPS, ensure API URL is also HTTPS
+        if (typeof window !== "undefined" && window.location.protocol === "https:" && url.startsWith("http://")) {
+            url = url.replace("http://", "https://");
+        }
+        return url;
+    })(),
     headers: {
         "Content-Type": "application/json",
     },
