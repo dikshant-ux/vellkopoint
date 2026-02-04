@@ -20,10 +20,9 @@ export function middleware(request: NextRequest) {
         "/reset-password",
         "/accept-invitation",
         "/public",
-        "/", // Landing page
     ];
 
-    const isPublicPath = publicPaths.some(path => pathname.startsWith(path));
+    const isPublicPath = pathname === "/" || publicPaths.some(path => pathname.startsWith(path));
 
     // If user is accessing a protected route without a token
     if (!isPublicPath && !hasRefreshToken) {
