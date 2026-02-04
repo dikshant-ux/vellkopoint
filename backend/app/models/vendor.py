@@ -1,5 +1,5 @@
 from typing import List, Optional, Literal
-from datetime import datetime
+from datetime import datetime, timezone
 from beanie import Document, Link
 from pydantic import BaseModel, Field
 import uuid
@@ -76,7 +76,7 @@ class Source(BaseModel):
     mapping: SourceMapping = SourceMapping()
     normalization: SourceNormalization = SourceNormalization()
     rules: SourceRules = SourceRules()
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class Vendor(Document):
     tenant_id: str
@@ -94,7 +94,7 @@ class Vendor(Document):
         return data
 
     sources: List[Source] = []
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     
     class Settings:
         name = "vendors"

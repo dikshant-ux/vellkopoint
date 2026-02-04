@@ -11,7 +11,19 @@ interface DateDisplayProps {
 export function DateDisplay({ date, dateFormat = "PP p", className }: DateDisplayProps) {
     if (!date) return <span className={className}>-</span>;
 
-    const dateObj = typeof date === "string" ? new Date(date) : date;
+    let dateObj: Date;
+    if (typeof date === "string") {
+        // Fix for naive timestamps (legacy data from storing datetime.utcnow)
+        // If the string doesn't end with Z and doesn't have an offset, append Z to treat as UTC
+        // Naive ISO strings come out like "2023-01-01T12:00:00.000" or similar
+        let dateString = date;
+        if (!dateString.endsWith("Z") && !/[+-]\d{2}:?\d{2}$/.test(dateString)) {
+            dateString += "Z";
+        }
+        dateObj = new Date(dateString);
+    } else {
+        dateObj = date;
+    }
 
     // Check for invalid date
     if (isNaN(dateObj.getTime())) {
