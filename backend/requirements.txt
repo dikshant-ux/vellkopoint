@@ -24,3 +24,5 @@ jinja2==3.1.6
 python-dateutil==2.9.0.post0
 watchfiles==1.1.1 # For dev reload
 websockets==15.0.1
+Pillow==10.4.0
+
