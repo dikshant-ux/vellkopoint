@@ -106,7 +106,7 @@ export function LoginForm() {
             login(res.data.access_token, meRes.data);
 
             toast.success("Welcome back!");
-            router.push("/");
+            router.push("/dashboard");
         } catch (error: any) {
             const msg = error.response?.data?.detail || "Something went wrong";
             if (error.response?.status === 403) {

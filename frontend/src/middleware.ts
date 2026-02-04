@@ -20,6 +20,7 @@ export function middleware(request: NextRequest) {
         "/reset-password",
         "/accept-invitation",
         "/public",
+        "/", // Landing page
     ];
 
     const isPublicPath = publicPaths.some(path => pathname.startsWith(path));

@@ -53,7 +53,7 @@ const data = {
             items: [
                 {
                     title: "Dashboard",
-                    url: "/",
+                    url: "/dashboard",
                     icon: LayoutDashboard,
                     requiredPermission: Permission.VIEW_ANALYTICS,
                 },

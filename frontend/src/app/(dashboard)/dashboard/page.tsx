@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import api from "@/lib/api";
 import { Users, Boxes, Activity, Globe, Send, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ConnectionGraph } from "@/components/dashboard/connection-graph";
 
 export default function Home() {
   const [stats, setStats] = useState({
@@ -124,6 +125,8 @@ export default function Home() {
           </div>
         ))}
       </div>
+
+      <ConnectionGraph />
 
       {/* Quick Actions or Feed could go here */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-4">

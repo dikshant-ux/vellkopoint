@@ -50,7 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (!token) {
                 // If on a public path and no token, don't even try to refresh.
                 // Just stop loading and let the user be a guest.
-                const isPublic = PUBLIC_PATHS.some(p => window.location.pathname.startsWith(p));
+                const isPublic = window.location.pathname === "/" || PUBLIC_PATHS.some(p => window.location.pathname.startsWith(p));
                 if (isPublic) {
                     setIsLoading(false);
                     return;
@@ -107,7 +107,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         if (isLoading) return;
 
-        const isPublic = PUBLIC_PATHS.some(p => pathname?.startsWith(p));
+        const isPublic = pathname === "/" || PUBLIC_PATHS.some(p => pathname?.startsWith(p));
 
         // If user is not logged in and trying to access a protected route
         if (!user && !isPublic) {
