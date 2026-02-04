@@ -51,6 +51,10 @@ app.add_middleware(
     max_age=86400,  # cache preflight for 24h
 )
 
+# Trust moved to this middleware to handle HTTPS behind proxy correctly
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
+
 
 
 # Performance Logging Middleware

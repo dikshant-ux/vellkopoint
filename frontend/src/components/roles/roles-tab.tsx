@@ -49,7 +49,7 @@ export function RolesTab() {
     const fetchRoles = async () => {
         setLoading(true);
         try {
-            const res = await api.get("/roles");
+            const res = await api.get("/roles/");
             setRoles(res.data);
         } catch (error) {
             console.error("Failed to fetch roles", error);

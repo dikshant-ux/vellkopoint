@@ -3,14 +3,7 @@ import axios from "axios";
 // Create an instance of axio
 const api = axios.create({
     // Fallback to relative path "/api/v1" which works with Nginx proxy in production
-    baseURL: (function () {
-        let url = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
-        // If running in browser and on HTTPS, ensure API URL is also HTTPS
-        if (typeof window !== "undefined" && window.location.protocol === "https:" && url.startsWith("http://")) {
-            url = url.replace("http://", "https://");
-        }
-        return url;
-    })(),
+    baseURL: process.env.NEXT_PUBLIC_API_URL || "/api/v1",
     headers: {
         "Content-Type": "application/json",
     },
@@ -27,6 +20,18 @@ api.interceptors.request.use(
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
+
+        // AUTO-FIX: Enforce HTTPS if we are running in an HTTPS environment
+        // This handles cases where NEXT_PUBLIC_API_URL is set to http://... but the app is served over https://
+        if (typeof window !== "undefined" && window.location.protocol === "https:") {
+            if (config.baseURL?.startsWith("http://")) {
+                config.baseURL = config.baseURL.replace("http://", "https://");
+            }
+            if (config.url?.startsWith("http://")) {
+                config.url = config.url.replace("http://", "https://");
+            }
+        }
+
         return config;
     },
     (error) => Promise.reject(error)
