@@ -12,6 +12,16 @@ import { Button } from "@/components/ui/button";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useAuth } from "@/context/auth-context";
 import { Permission } from "@/lib/permissions";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Settings2 } from "lucide-react";
 
 interface StatSet {
     assigned: number;
@@ -36,6 +46,23 @@ interface Customer {
     };
 }
 
+const COLUMN_DEFINITIONS = [
+    { key: "id", label: "Cust ID" },
+    { key: "name", label: "Customer Name" },
+    { key: "today_assigned", label: "Assigned Today" },
+    { key: "today_delivered", label: "Delivered Today" },
+    { key: "today_rejected", label: "Rejected Today" },
+    { key: "yesterday", label: "Delivered Yesterday" },
+    { key: "last_week", label: "Delivered Last Week" },
+    { key: "last_month", label: "Delivered Last Month" },
+    { key: "ninety_days", label: "Delivered 90 Days" },
+    { key: "six_months", label: "Delivered 6 Months" },
+    { key: "last_year", label: "Delivered Last Year" },
+    { key: "all_time", label: "Delivered All Time" },
+    { key: "status", label: "Status" },
+    { key: "options", label: "Options" },
+];
+
 export default function CustomersPage() {
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -47,6 +74,32 @@ export default function CustomersPage() {
     const [selectedCustomerForLeads, setSelectedCustomerForLeads] = useState<{ id: string; name: string } | null>(null);
     const [selectedCustomerForMetrics, setSelectedCustomerForMetrics] = useState<{ id: string; name: string } | null>(null);
     const [loading, setLoading] = useState(true);
+    const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(
+        COLUMN_DEFINITIONS.reduce((acc, col) => ({ ...acc, [col.key]: true }), {})
+    );
+    const [pendingColumns, setPendingColumns] = useState<Record<string, boolean>>(visibleColumns);
+    const [isColumnDropdownOpen, setIsColumnDropdownOpen] = useState(false);
+
+    // Sync pending columns when dropdown opens
+    useEffect(() => {
+        if (isColumnDropdownOpen) {
+            setPendingColumns(visibleColumns);
+        }
+    }, [isColumnDropdownOpen, visibleColumns]);
+
+    // Load saved columns from localStorage on mount
+    useEffect(() => {
+        const saved = localStorage.getItem("customer-table-columns");
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                setVisibleColumns(prev => ({ ...prev, ...parsed }));
+            } catch (e) {
+                console.error("Failed to parse saved columns", e);
+            }
+        }
+    }, []);
+
     const { user } = useAuth();
 
     // Permission Checks
@@ -153,6 +206,85 @@ export default function CustomersPage() {
                             />
                         </div>
                         {loading && <span className="text-xs text-muted-foreground animate-pulse">Updating metrics...</span>}
+
+                        <DropdownMenu open={isColumnDropdownOpen} onOpenChange={setIsColumnDropdownOpen}>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" size="sm" className="h-9 flex">
+                                    <Settings2 className="mr-2 h-4 w-4" />
+                                    View
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-[300px] p-0">
+                                <DropdownMenuLabel className="px-4 py-2">Toggle Columns</DropdownMenuLabel>
+                                <div className="px-4 pb-2 flex gap-4 text-xs text-muted-foreground">
+                                    <button
+                                        className="hover:text-primary transition-colors hover:underline"
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            const update = { ...pendingColumns };
+                                            COLUMN_DEFINITIONS.forEach(col => {
+                                                if (!["id", "name", "status", "options"].includes(col.key)) {
+                                                    update[col.key] = true;
+                                                }
+                                            });
+                                            setPendingColumns(update);
+                                        }}
+                                    >
+                                        Select All
+                                    </button>
+                                    <button
+                                        className="hover:text-primary transition-colors hover:underline"
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            const update = { ...pendingColumns };
+                                            COLUMN_DEFINITIONS.forEach(col => {
+                                                if (!["id", "name", "status", "options"].includes(col.key)) {
+                                                    update[col.key] = false;
+                                                }
+                                            });
+                                            setPendingColumns(update);
+                                        }}
+                                    >
+                                        Unselect All
+                                    </button>
+                                </div>
+                                <DropdownMenuSeparator />
+                                <div className="p-2 grid gap-2 max-h-[300px] overflow-y-auto">
+                                    {COLUMN_DEFINITIONS
+                                        .filter(col => !["id", "name", "status", "options"].includes(col.key))
+                                        .map((column) => (
+                                            <div key={column.key} className="flex items-center space-x-2 rounded p-1 hover:bg-slate-100">
+                                                <Checkbox
+                                                    id={`col-${column.key}`}
+                                                    checked={pendingColumns[column.key]}
+                                                    onCheckedChange={(checked) =>
+                                                        setPendingColumns(prev => ({ ...prev, [column.key]: !!checked }))
+                                                    }
+                                                />
+                                                <Label
+                                                    htmlFor={`col-${column.key}`}
+                                                    className="text-sm font-normal cursor-pointer flex-1"
+                                                >
+                                                    {column.label}
+                                                </Label>
+                                            </div>
+                                        ))}
+                                </div>
+                                <div className="p-2 border-t mt-1">
+                                    <Button
+                                        className="w-full"
+                                        size="sm"
+                                        onClick={() => {
+                                            setVisibleColumns(pendingColumns);
+                                            localStorage.setItem("customer-table-columns", JSON.stringify(pendingColumns));
+                                            setIsColumnDropdownOpen(false);
+                                        }}
+                                    >
+                                        Apply
+                                    </Button>
+                                </div>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </div>
 
                     <div className="flex items-center gap-4 text-xs">
@@ -205,6 +337,7 @@ export default function CustomersPage() {
                         isLoading={loading}
                         canEdit={canEdit}
                         canDelete={canDelete}
+                        visibleColumns={visibleColumns}
                     />
                 </div>
             </div>

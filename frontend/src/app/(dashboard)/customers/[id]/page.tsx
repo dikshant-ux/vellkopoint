@@ -14,6 +14,16 @@ import { PerformanceSheet } from "@/components/system/performance-sheet";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Settings2 } from "lucide-react";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
     Dialog,
     DialogContent,
@@ -35,6 +45,22 @@ interface Customer {
     destinations: any[];
     campaigns: any[];
 }
+
+const CAMPAIGN_COLUMN_DEFINITIONS = [
+    { key: "id", label: "Camp ID" },
+    { key: "name", label: "Campaign Name" },
+    { key: "destination", label: "Target Destination" },
+    { key: "today_assigned", label: "Assigned Today" },
+    { key: "today_delivered", label: "Delivered Today" },
+    { key: "today_rejected", label: "Rejected Today" },
+    { key: "yesterday", label: "Delivered Yest." },
+    { key: "week", label: "Delivered Week" },
+    { key: "total", label: "Delivered Total" },
+    { key: "priority", label: "Priority" },
+    { key: "weight", label: "Weight (%)" },
+    { key: "status", label: "Status" },
+    { key: "options", label: "Options" },
+];
 
 export default function CustomerDetailsPage({ params }: { params: Promise<{ id: string }> }) {
     const [customer, setCustomer] = useState<Customer | null>(null);
@@ -69,6 +95,31 @@ export default function CustomerDetailsPage({ params }: { params: Promise<{ id: 
     const [search, setSearch] = useState("");
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
+    const [visibleCampaignColumns, setVisibleCampaignColumns] = useState<Record<string, boolean>>(
+        CAMPAIGN_COLUMN_DEFINITIONS.reduce((acc, col) => ({ ...acc, [col.key]: true }), {})
+    );
+    const [pendingCampaignColumns, setPendingCampaignColumns] = useState<Record<string, boolean>>(visibleCampaignColumns);
+    const [isCampaignColumnDropdownOpen, setIsCampaignColumnDropdownOpen] = useState(false);
+
+    // Sync pending columns when dropdown opens
+    useEffect(() => {
+        if (isCampaignColumnDropdownOpen) {
+            setPendingCampaignColumns(visibleCampaignColumns);
+        }
+    }, [isCampaignColumnDropdownOpen, visibleCampaignColumns]);
+
+    // Load saved columns from localStorage
+    useEffect(() => {
+        const saved = localStorage.getItem("customer-campaign-table-columns");
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                setVisibleCampaignColumns(prev => ({ ...prev, ...parsed }));
+            } catch (e) {
+                console.error("Failed to parse saved columns", e);
+            }
+        }
+    }, []);
 
     const debouncedSearch = useDebounce(search, 300); // Shorter debounce for client-side
 
@@ -441,6 +492,85 @@ export default function CustomerDetailsPage({ params }: { params: Promise<{ id: 
                             />
                         </div>
 
+                        <DropdownMenu open={isCampaignColumnDropdownOpen} onOpenChange={setIsCampaignColumnDropdownOpen}>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" size="sm" className="h-9 flex bg-white">
+                                    <Settings2 className="mr-2 h-4 w-4" />
+                                    View
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-[300px] p-0">
+                                <DropdownMenuLabel className="px-4 py-2">Toggle Columns</DropdownMenuLabel>
+                                <div className="px-4 pb-2 flex gap-4 text-xs text-muted-foreground">
+                                    <button
+                                        className="hover:text-primary transition-colors hover:underline"
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            const update = { ...pendingCampaignColumns };
+                                            CAMPAIGN_COLUMN_DEFINITIONS.forEach(col => {
+                                                if (!["id", "name", "destination", "status", "options"].includes(col.key)) {
+                                                    update[col.key] = true;
+                                                }
+                                            });
+                                            setPendingCampaignColumns(update);
+                                        }}
+                                    >
+                                        Select All
+                                    </button>
+                                    <button
+                                        className="hover:text-primary transition-colors hover:underline"
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            const update = { ...pendingCampaignColumns };
+                                            CAMPAIGN_COLUMN_DEFINITIONS.forEach(col => {
+                                                if (!["id", "name", "destination", "status", "options"].includes(col.key)) {
+                                                    update[col.key] = false;
+                                                }
+                                            });
+                                            setPendingCampaignColumns(update);
+                                        }}
+                                    >
+                                        Unselect All
+                                    </button>
+                                </div>
+                                <DropdownMenuSeparator />
+                                <div className="p-2 grid gap-2 max-h-[300px] overflow-y-auto">
+                                    {CAMPAIGN_COLUMN_DEFINITIONS
+                                        .filter(col => !["id", "name", "destination", "status", "options"].includes(col.key))
+                                        .map((column) => (
+                                            <div key={column.key} className="flex items-center space-x-2 rounded p-1 hover:bg-slate-100">
+                                                <Checkbox
+                                                    id={`camp-col-${column.key}`}
+                                                    checked={pendingCampaignColumns[column.key]}
+                                                    onCheckedChange={(checked) =>
+                                                        setPendingCampaignColumns(prev => ({ ...prev, [column.key]: !!checked }))
+                                                    }
+                                                />
+                                                <Label
+                                                    htmlFor={`camp-col-${column.key}`}
+                                                    className="text-sm font-normal cursor-pointer flex-1"
+                                                >
+                                                    {column.label}
+                                                </Label>
+                                            </div>
+                                        ))}
+                                </div>
+                                <div className="p-2 border-t mt-1">
+                                    <Button
+                                        className="w-full"
+                                        size="sm"
+                                        onClick={() => {
+                                            setVisibleCampaignColumns(pendingCampaignColumns);
+                                            localStorage.setItem("customer-campaign-table-columns", JSON.stringify(pendingCampaignColumns));
+                                            setIsCampaignColumnDropdownOpen(false);
+                                        }}
+                                    >
+                                        Apply
+                                    </Button>
+                                </div>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+
                         <div className="flex items-center gap-4 text-xs">
                             <div className="flex items-center gap-2">
                                 <span className="text-muted-foreground">Show</span>
@@ -491,6 +621,7 @@ export default function CustomerDetailsPage({ params }: { params: Promise<{ id: 
                     onViewMetrics={(id, name) => setSelectedCampaignForMetrics({ id, name })}
                     canEdit={canEditCampaign}
                     canDelete={canDeleteCampaign}
+                    visibleColumns={visibleCampaignColumns}
                 />
             </div>
 

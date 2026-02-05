@@ -6,7 +6,7 @@ import api from "@/lib/api";
 import Link from "next/link";
 import { SourceLeadsSheet } from "@/components/leads/source-leads-sheet";
 import { PerformanceSheet } from "@/components/system/performance-sheet";
-import { Download, Pencil, Plus, Trash2, Eye, MoreHorizontal, LineChart } from "lucide-react";
+import { Download, Pencil, Plus, Trash2, Eye, MoreHorizontal, LineChart, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -27,6 +27,8 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { DeleteConfirmation } from "@/components/ui/delete-confirmation";
 import { VendorCreateDialog } from "@/components/vendors/vendor-create-dialog";
@@ -53,6 +55,24 @@ interface VendorStatsRow {
     _id?: string;
 }
 
+const COLUMN_DEFINITIONS = [
+    { key: "id", label: "Vendor ID" },
+    { key: "name", label: "Vendor Name" },
+    { key: "leads", label: "# Leads" },
+    { key: "duplicates", label: "# Duplicates" },
+    { key: "leads_today", label: "# Leads Today" },
+    { key: "duplicates_today", label: "# Duplicates Today" },
+    { key: "leads_yesterday", label: "# Leads Yesterday" },
+    { key: "last_7_days", label: "Last 7 Days" },
+    { key: "last_30_days", label: "Last 30 Days" },
+    { key: "last_90_days", label: "Last 90 Days" },
+    { key: "last_180_days", label: "Last 180 Days" },
+    { key: "last_365_days", label: "Last 365 Days" },
+    { key: "all_time", label: "All Time" },
+    { key: "status", label: "Status" },
+    { key: "options", label: "Options" },
+];
+
 export default function VendorsPage() {
     const router = useRouter();
     const [vendors, setVendors] = useState<VendorStatsRow[]>([]);
@@ -66,6 +86,33 @@ export default function VendorsPage() {
     const [viewLeadsVendor, setViewLeadsVendor] = useState<{ id: string; name: string } | null>(null);
     const [performanceVendor, setPerformanceVendor] = useState<{ id: string; name: string } | null>(null);
     const [total, setTotal] = useState(0);
+    const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>(
+        COLUMN_DEFINITIONS.reduce((acc, col) => ({ ...acc, [col.key]: true }), {})
+    );
+    // Pending columns state for deferred application in the dropdown
+    const [pendingColumns, setPendingColumns] = useState<Record<string, boolean>>(visibleColumns);
+    const [isColumnDropdownOpen, setIsColumnDropdownOpen] = useState(false);
+
+    // Sync pending columns when dropdown opens
+    useEffect(() => {
+        if (isColumnDropdownOpen) {
+            setPendingColumns(visibleColumns);
+        }
+    }, [isColumnDropdownOpen, visibleColumns]);
+
+    // Load saved columns from localStorage on mount
+    useEffect(() => {
+        const saved = localStorage.getItem("vendor-table-columns");
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                setVisibleColumns(prev => ({ ...prev, ...parsed }));
+            } catch (e) {
+                console.error("Failed to parse saved columns", e);
+            }
+        }
+    }, []);
+
     const [loading, setLoading] = useState(true);
     const { user } = useAuth();
 
@@ -249,6 +296,85 @@ export default function VendorsPage() {
                             />
                         </div>
                         {loading && <span className="text-xs text-muted-foreground animate-pulse">Updating metrics...</span>}
+
+                        <DropdownMenu open={isColumnDropdownOpen} onOpenChange={setIsColumnDropdownOpen}>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" size="sm" className="h-9 flex">
+                                    <Settings2 className="mr-2 h-4 w-4" />
+                                    View
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-[300px] p-0">
+                                <DropdownMenuLabel className="px-4 py-2">Toggle Columns</DropdownMenuLabel>
+                                <div className="px-4 pb-2 flex gap-4 text-xs text-muted-foreground">
+                                    <button
+                                        className="hover:text-primary transition-colors hover:underline"
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            const update = { ...pendingColumns };
+                                            COLUMN_DEFINITIONS.forEach(col => {
+                                                if (!["id", "name", "status", "options"].includes(col.key)) {
+                                                    update[col.key] = true;
+                                                }
+                                            });
+                                            setPendingColumns(update);
+                                        }}
+                                    >
+                                        Select All
+                                    </button>
+                                    <button
+                                        className="hover:text-primary transition-colors hover:underline"
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            const update = { ...pendingColumns };
+                                            COLUMN_DEFINITIONS.forEach(col => {
+                                                if (!["id", "name", "status", "options"].includes(col.key)) {
+                                                    update[col.key] = false;
+                                                }
+                                            });
+                                            setPendingColumns(update);
+                                        }}
+                                    >
+                                        Unselect All
+                                    </button>
+                                </div>
+                                <DropdownMenuSeparator />
+                                <div className="p-2 grid gap-2 max-h-[300px] overflow-y-auto">
+                                    {COLUMN_DEFINITIONS
+                                        .filter(col => !["id", "name", "status", "options"].includes(col.key))
+                                        .map((column) => (
+                                            <div key={column.key} className="flex items-center space-x-2 rounded p-1 hover:bg-slate-100">
+                                                <Checkbox
+                                                    id={`col-${column.key}`}
+                                                    checked={pendingColumns[column.key]}
+                                                    onCheckedChange={(checked) =>
+                                                        setPendingColumns(prev => ({ ...prev, [column.key]: !!checked }))
+                                                    }
+                                                />
+                                                <Label
+                                                    htmlFor={`col-${column.key}`}
+                                                    className="text-sm font-normal cursor-pointer flex-1"
+                                                >
+                                                    {column.label}
+                                                </Label>
+                                            </div>
+                                        ))}
+                                </div>
+                                <div className="p-2 border-t mt-1">
+                                    <Button
+                                        className="w-full"
+                                        size="sm"
+                                        onClick={() => {
+                                            setVisibleColumns(pendingColumns);
+                                            localStorage.setItem("vendor-table-columns", JSON.stringify(pendingColumns));
+                                            setIsColumnDropdownOpen(false);
+                                        }}
+                                    >
+                                        Apply
+                                    </Button>
+                                </div>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </div>
                 </div>
 
@@ -256,42 +382,42 @@ export default function VendorsPage() {
                 <Table className="min-w-[1200px]">
                     <TableHeader className="sticky top-0 z-10 bg-white">
                         <TableRow className="bg-white">
-                            <TableHead className="bg-white">Vendor ID</TableHead>
-                            <TableHead className="bg-white">Vendor Name</TableHead>
-                            <TableHead className="text-right bg-white"># Leads</TableHead>
-                            <TableHead className="text-right bg-white"># Duplicates</TableHead>
-                            <TableHead className="text-right bg-white"># Leads Today</TableHead>
-                            <TableHead className="text-right bg-white"># Duplicates Today</TableHead>
-                            <TableHead className="text-right bg-white"># Leads Yesterday</TableHead>
-                            <TableHead className="text-right bg-white">Last 7 Days</TableHead>
-                            <TableHead className="text-right bg-white">Last 30 Days</TableHead>
-                            <TableHead className="text-right bg-white">Last 90 Days</TableHead>
-                            <TableHead className="text-right bg-white">Last 180 Days</TableHead>
-                            <TableHead className="text-right bg-white">Last 365 Days</TableHead>
-                            <TableHead className="text-right bg-white">All Time</TableHead>
-                            <TableHead className="bg-white">Status</TableHead>
-                            <TableHead className="text-right bg-white">Options</TableHead>
+                            {visibleColumns.id && <TableHead className="bg-white">Vendor ID</TableHead>}
+                            {visibleColumns.name && <TableHead className="bg-white">Vendor Name</TableHead>}
+                            {visibleColumns.leads && <TableHead className="text-right bg-white"># Leads</TableHead>}
+                            {visibleColumns.duplicates && <TableHead className="text-right bg-white"># Duplicates</TableHead>}
+                            {visibleColumns.leads_today && <TableHead className="text-right bg-white"># Leads Today</TableHead>}
+                            {visibleColumns.duplicates_today && <TableHead className="text-right bg-white"># Duplicates Today</TableHead>}
+                            {visibleColumns.leads_yesterday && <TableHead className="text-right bg-white"># Leads Yesterday</TableHead>}
+                            {visibleColumns.last_7_days && <TableHead className="text-right bg-white">Last 7 Days</TableHead>}
+                            {visibleColumns.last_30_days && <TableHead className="text-right bg-white">Last 30 Days</TableHead>}
+                            {visibleColumns.last_90_days && <TableHead className="text-right bg-white">Last 90 Days</TableHead>}
+                            {visibleColumns.last_180_days && <TableHead className="text-right bg-white">Last 180 Days</TableHead>}
+                            {visibleColumns.last_365_days && <TableHead className="text-right bg-white">Last 365 Days</TableHead>}
+                            {visibleColumns.all_time && <TableHead className="text-right bg-white">All Time</TableHead>}
+                            {visibleColumns.status && <TableHead className="bg-white">Status</TableHead>}
+                            {visibleColumns.options && <TableHead className="text-right bg-white">Options</TableHead>}
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {loading ? (
                             [...Array(5)].map((_, i) => (
                                 <TableRow key={i} className="border-b">
-                                    <TableCell className="py-3"><Skeleton className="h-4 w-[100px]" /></TableCell>
-                                    <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
-                                    <TableCell className="text-right"><Skeleton className="h-4 w-[60px] ml-auto" /></TableCell>
-                                    <TableCell className="text-right"><Skeleton className="h-4 w-[60px] ml-auto" /></TableCell>
-                                    <TableCell className="text-right"><Skeleton className="h-4 w-[60px] ml-auto" /></TableCell>
-                                    <TableCell className="text-right"><Skeleton className="h-4 w-[60px] ml-auto" /></TableCell>
-                                    <TableCell className="text-right"><Skeleton className="h-4 w-[60px] ml-auto" /></TableCell>
-                                    <TableCell className="text-right"><Skeleton className="h-4 w-[60px] ml-auto" /></TableCell>
-                                    <TableCell className="text-right"><Skeleton className="h-4 w-[60px] ml-auto" /></TableCell>
-                                    <TableCell className="text-right"><Skeleton className="h-4 w-[60px] ml-auto" /></TableCell>
-                                    <TableCell className="text-right"><Skeleton className="h-4 w-[60px] ml-auto" /></TableCell>
-                                    <TableCell className="text-right"><Skeleton className="h-4 w-[60px] ml-auto" /></TableCell>
-                                    <TableCell className="text-right"><Skeleton className="h-4 w-[60px] ml-auto" /></TableCell>
-                                    <TableCell><Skeleton className="h-4 w-[80px]" /></TableCell>
-                                    <TableCell className="text-right"><Skeleton className="h-4 w-[20px] ml-auto" /></TableCell>
+                                    {visibleColumns.id && <TableCell className="py-3"><Skeleton className="h-4 w-[100px]" /></TableCell>}
+                                    {visibleColumns.name && <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>}
+                                    {visibleColumns.leads && <TableCell className="text-right"><Skeleton className="h-4 w-[60px] ml-auto" /></TableCell>}
+                                    {visibleColumns.duplicates && <TableCell className="text-right"><Skeleton className="h-4 w-[60px] ml-auto" /></TableCell>}
+                                    {visibleColumns.leads_today && <TableCell className="text-right"><Skeleton className="h-4 w-[60px] ml-auto" /></TableCell>}
+                                    {visibleColumns.duplicates_today && <TableCell className="text-right"><Skeleton className="h-4 w-[60px] ml-auto" /></TableCell>}
+                                    {visibleColumns.leads_yesterday && <TableCell className="text-right"><Skeleton className="h-4 w-[60px] ml-auto" /></TableCell>}
+                                    {visibleColumns.last_7_days && <TableCell className="text-right"><Skeleton className="h-4 w-[60px] ml-auto" /></TableCell>}
+                                    {visibleColumns.last_30_days && <TableCell className="text-right"><Skeleton className="h-4 w-[60px] ml-auto" /></TableCell>}
+                                    {visibleColumns.last_90_days && <TableCell className="text-right"><Skeleton className="h-4 w-[60px] ml-auto" /></TableCell>}
+                                    {visibleColumns.last_180_days && <TableCell className="text-right"><Skeleton className="h-4 w-[60px] ml-auto" /></TableCell>}
+                                    {visibleColumns.last_365_days && <TableCell className="text-right"><Skeleton className="h-4 w-[60px] ml-auto" /></TableCell>}
+                                    {visibleColumns.all_time && <TableCell className="text-right"><Skeleton className="h-4 w-[60px] ml-auto" /></TableCell>}
+                                    {visibleColumns.status && <TableCell><Skeleton className="h-4 w-[80px]" /></TableCell>}
+                                    {visibleColumns.options && <TableCell className="text-right"><Skeleton className="h-4 w-[20px] ml-auto" /></TableCell>}
                                 </TableRow>
                             ))
                         ) : (
@@ -301,84 +427,88 @@ export default function VendorsPage() {
                                     className="cursor-pointer hover:bg-muted/50"
                                     onClick={() => router.push(`/vendors/${vendor.id}`)}
                                 >
-                                    <TableCell className="font-mono text-xs font-bold text-slate-900">
-                                        {vendor.readable_id || vendor.id.slice(0, 8)}
-                                    </TableCell>
-                                    <TableCell className="font-medium">{vendor.name}</TableCell>
-                                    <TableCell className="text-right tabular-nums">{vendor.leads.toLocaleString()}</TableCell>
-                                    <TableCell className="text-right tabular-nums">{vendor.duplicates.toLocaleString()}</TableCell>
-                                    <TableCell className="text-right tabular-nums">{vendor.leads_today.toLocaleString()}</TableCell>
-                                    <TableCell className="text-right tabular-nums">{vendor.duplicates_today.toLocaleString()}</TableCell>
-                                    <TableCell className="text-right tabular-nums">{vendor.leads_yesterday.toLocaleString()}</TableCell>
-                                    <TableCell className="text-right tabular-nums">{vendor.last_7_days.toLocaleString()}</TableCell>
-                                    <TableCell className="text-right tabular-nums">{vendor.last_30_days.toLocaleString()}</TableCell>
-                                    <TableCell className="text-right tabular-nums">{vendor.last_90_days.toLocaleString()}</TableCell>
-                                    <TableCell className="text-right tabular-nums">{vendor.last_180_days.toLocaleString()}</TableCell>
-                                    <TableCell className="text-right tabular-nums">{vendor.last_365_days.toLocaleString()}</TableCell>
-                                    <TableCell className="text-right tabular-nums">{vendor.all_time.toLocaleString()}</TableCell>
-                                    <TableCell>
-                                        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                                            <Switch
-                                                checked={vendor.status === "enabled"}
-                                                onCheckedChange={() => initToggleVendorStatus(vendor.id, vendor.status, vendor.name)}
-                                            />
-                                            <span className={`text-xs font-medium ${vendor.status === "enabled" ? "text-green-600" : "text-muted-foreground"}`}>
-                                                {vendor.status === "enabled" ? "Enabled" : "Disabled"}
-                                            </span>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                                    {visibleColumns.id && (
+                                        <TableCell className="font-mono text-xs font-bold text-slate-900">
+                                            {vendor.readable_id || vendor.id.slice(0, 8)}
+                                        </TableCell>
+                                    )}
+                                    {visibleColumns.name && <TableCell className="font-medium">{vendor.name}</TableCell>}
+                                    {visibleColumns.leads && <TableCell className="text-right tabular-nums">{vendor.leads.toLocaleString()}</TableCell>}
+                                    {visibleColumns.duplicates && <TableCell className="text-right tabular-nums">{vendor.duplicates.toLocaleString()}</TableCell>}
+                                    {visibleColumns.leads_today && <TableCell className="text-right tabular-nums">{vendor.leads_today.toLocaleString()}</TableCell>}
+                                    {visibleColumns.duplicates_today && <TableCell className="text-right tabular-nums">{vendor.duplicates_today.toLocaleString()}</TableCell>}
+                                    {visibleColumns.leads_yesterday && <TableCell className="text-right tabular-nums">{vendor.leads_yesterday.toLocaleString()}</TableCell>}
+                                    {visibleColumns.last_7_days && <TableCell className="text-right tabular-nums">{vendor.last_7_days.toLocaleString()}</TableCell>}
+                                    {visibleColumns.last_30_days && <TableCell className="text-right tabular-nums">{vendor.last_30_days.toLocaleString()}</TableCell>}
+                                    {visibleColumns.last_90_days && <TableCell className="text-right tabular-nums">{vendor.last_90_days.toLocaleString()}</TableCell>}
+                                    {visibleColumns.last_180_days && <TableCell className="text-right tabular-nums">{vendor.last_180_days.toLocaleString()}</TableCell>}
+                                    {visibleColumns.last_365_days && <TableCell className="text-right tabular-nums">{vendor.last_365_days.toLocaleString()}</TableCell>}
+                                    {visibleColumns.all_time && <TableCell className="text-right tabular-nums">{vendor.all_time.toLocaleString()}</TableCell>}
+                                    {visibleColumns.status && (
+                                        <TableCell>
+                                            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                                <Switch
+                                                    checked={vendor.status === "enabled"}
+                                                    onCheckedChange={() => initToggleVendorStatus(vendor.id, vendor.status, vendor.name)}
+                                                />
+                                                <span className={`text-xs font-medium ${vendor.status === "enabled" ? "text-green-600" : "text-muted-foreground"}`}>
+                                                    {vendor.status === "enabled" ? "Enabled" : "Disabled"}
+                                                </span>
+                                            </div>
+                                        </TableCell>
+                                    )}
+                                    {visibleColumns.options && (
+                                        <TableCell className="text-right">
+                                            <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button variant="ghost" className="h-8 w-8 p-0">
+                                                            <span className="sr-only">Open menu</span>
+                                                            <MoreHorizontal className="h-4 w-4" />
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end">
+                                                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
 
-
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button variant="ghost" className="h-8 w-8 p-0">
-                                                        <span className="sr-only">Open menu</span>
-                                                        <MoreHorizontal className="h-4 w-4" />
-                                                    </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end">
-                                                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
-
-                                                    <DropdownMenuItem onClick={() => setPerformanceVendor({ id: vendor.id, name: vendor.name })}>
-                                                        <LineChart className="mr-2 h-4 w-4" />
-                                                        View Metrics
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => setViewLeadsVendor({ id: vendor.id, name: vendor.name })}>
-                                                        <Eye className="mr-2 h-4 w-4" />
-                                                        View Leads
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuSeparator />
-                                                    <DropdownMenuItem asChild disabled={!canEdit}>
-                                                        <Link href={canEdit ? `/vendors/${vendor.id}` : "#"} className={!canEdit ? "pointer-events-none opacity-50" : ""}>
-                                                            <Pencil className="mr-2 h-4 w-4" />
-                                                            Edit
-                                                        </Link>
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem disabled title="Export coming soon">
-                                                        <Download className="mr-2 h-4 w-4" />
-                                                        Export
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuSeparator />
-                                                    <DropdownMenuItem
-                                                        onClick={() => setVendorToDelete({ id: vendor.id, name: vendor.name })}
-                                                        className="text-destructive focus:text-destructive"
-                                                        disabled={!canDelete}
-                                                    >
-                                                        <Trash2 className="mr-2 h-4 w-4" />
-                                                        Delete
-                                                    </DropdownMenuItem>
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        </div>
-                                    </TableCell>
+                                                        <DropdownMenuItem onClick={() => setPerformanceVendor({ id: vendor.id, name: vendor.name })}>
+                                                            <LineChart className="mr-2 h-4 w-4" />
+                                                            View Metrics
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => setViewLeadsVendor({ id: vendor.id, name: vendor.name })}>
+                                                            <Eye className="mr-2 h-4 w-4" />
+                                                            View Leads
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuSeparator />
+                                                        <DropdownMenuItem asChild disabled={!canEdit}>
+                                                            <Link href={canEdit ? `/vendors/${vendor.id}` : "#"} className={!canEdit ? "pointer-events-none opacity-50" : ""}>
+                                                                <Pencil className="mr-2 h-4 w-4" />
+                                                                Edit
+                                                            </Link>
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem disabled title="Export coming soon">
+                                                            <Download className="mr-2 h-4 w-4" />
+                                                            Export
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuSeparator />
+                                                        <DropdownMenuItem
+                                                            onClick={() => setVendorToDelete({ id: vendor.id, name: vendor.name })}
+                                                            className="text-destructive focus:text-destructive"
+                                                            disabled={!canDelete}
+                                                        >
+                                                            <Trash2 className="mr-2 h-4 w-4" />
+                                                            Delete
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            </div>
+                                        </TableCell>
+                                    )}
                                 </TableRow>
                             ))
                         )}
                         {!loading && vendors.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={15} className="text-center py-10 text-gray-500">
+                                <TableCell colSpan={Object.values(visibleColumns).filter(Boolean).length} className="text-center py-10 text-gray-500">
                                     No vendors found. Create one to get started.
                                 </TableCell>
                             </TableRow>
