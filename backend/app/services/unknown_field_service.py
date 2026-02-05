@@ -104,20 +104,40 @@ class UnknownFieldService:
                 SystemField.tenant_id == tenant_id
             )
             if existing:
-                raise ValueError(f"System field with key '{target_system_field}' already exists")
-
-            system_field = SystemField(**new_field_data)
-            await system_field.insert()
+                # User requested 'new', but it exists. 
+                # Be 'tenant-wise' and reuse the existing one idempotently.
+                # We could update the label/type here if we wanted, but generally we preserve existing.
+                pass 
+            else:
+                system_field = SystemField(**new_field_data)
+                await system_field.insert()
         else:
             exists = await SystemField.find_one(
                 SystemField.field_key == target_system_field,
                 SystemField.tenant_id == tenant_id
             )
             if not exists:
+                # If mode is 'existing' but it doesn't exist, that's still an error
                 raise ValueError(f"System field '{target_system_field}' does not exist")
 
-        # 2. Scoped Propagation
-        # We find sources that need this mapping updated
+        # 2. Identify all sources that have this unknown field
+        # Query UnknownField to find all sources (within scope) that have 'vendor_field_name' as unmapped
+        uf_query = {
+            "field_name": vendor_field_name, 
+            "tenant_id": tenant_id
+        }
+        if scope == "source":
+            uf_query["source_id"] = source_id
+        
+        # Get list of source IDs that have this field
+        # Note: Fetching full docs as Beanie projection requires a model class
+        sources_with_field_docs = await UnknownField.find(uf_query).to_list()
+        source_ids_with_field = {str(uf.source_id) for uf in sources_with_field_docs}
+        
+        # Always include the initiating source_id
+        source_ids_with_field.add(source_id)
+
+        # 3. Scoped Propagation
         criteria = {}
         if scope == "vendor":
             criteria = {"_id": vendor.id, "tenant_id": tenant_id} 
@@ -127,45 +147,48 @@ class UnknownFieldService:
 
         affected_source_ids = []
         vendors_to_update = await Vendor.find(criteria).to_list()
+        
         for v in vendors_to_update:
             v_updated = False
             for s in v.sources:
-                # If scope is source, strictly match source_id
+                # If scope is source, strict match is already handled by query criteria, 
+                # but we double check iteration here just in case.
                 if scope == "source" and s.id != source_id:
                     continue
                 
-                source_modified = False
+                should_update = False
                 
-                # Check for unmapped rule matching the vendor_field_name
+                # Check 1: Does this source have an unmapped rule for this field?
                 rule = next((r for r in s.mapping.rules if r.source_field == vendor_field_name), None)
                 if rule and rule.target_field is None:
                     rule.target_field = target_system_field
-                    source_modified = True
+                    should_update = True
                 
-                # If it's the initiating source and rule DOESN'T exist, add it
-                if s.id == source_id and not rule:
+                # Check 2: Does this source HAVE the unknown field data (based on UnknownField record) 
+                # OR is it the initiating source?
+                # If so, and no rule exists, add it.
+                if (s.id == source_id or s.id in source_ids_with_field) and not rule:
                     from app.models.mapping import MappingRule
                     s.mapping.rules.append(MappingRule(source_field=vendor_field_name, target_field=target_system_field))
-                    source_modified = True
+                    should_update = True
                 
-                if source_modified:
+                if should_update:
                     v_updated = True
                     affected_source_ids.append(s.id)
             
             if v_updated:
                 await v.save()
 
-        # 3. Delete UnknownField record(s) - Filter by Tenant
-        uf_criteria = {"field_name": vendor_field_name, "status": "unmapped", "tenant_id": tenant_id}
-        
-        # ... existing logic ...
-        
-        if scope == "source":
-            uf_criteria["source_id"] = source_id
-
-        await UnknownField.find(uf_criteria).delete()
+        # 4. Delete UnknownField record(s) - Filter by Tenant & Scope logic
+        # We delete records for any source that we successfully updated mappings for
+        if affected_source_ids:
+             await UnknownField.find({
+                 "field_name": vendor_field_name, 
+                 "tenant_id": tenant_id,
+                 "source_id": {"$in": affected_source_ids}
+             }).delete()
             
-        # 4. Universal Mapping (Scoped Alias)
+        # 5. Universal Mapping (Scoped Alias)
         sys_field_doc = await SystemField.find_one(
             SystemField.field_key == target_system_field,
             SystemField.tenant_id == tenant_id
@@ -194,13 +217,13 @@ class UnknownFieldService:
                 sys_field_doc.aliases.append(new_alias)
                 await sys_field_doc.save()
             
-        # 5. Trigger Retroactive Processing
+        # 6. Trigger Retroactive Processing
         if affected_source_ids:
             from app.tasks.lead_tasks import reprocess_source_leads_task
             for sid in affected_source_ids:
                  reprocess_source_leads_task.delay(sid, tenant_id)
 
-        return {"status": "success", "field": target_system_field}
+        return {"status": "success", "field": target_system_field, "affected_sources": len(affected_source_ids)}
 
     @staticmethod
     async def sync_source_mappings(source_id: str, mapping_rules: list, owner_id: str) -> None:
