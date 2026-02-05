@@ -119,6 +119,7 @@ export function VendorSourceFormDialog({
     sourceId,
     onSuccess,
 }: VendorSourceFormDialogProps) {
+    const [pendingUnmappedFields, setPendingUnmappedFields] = useState<string[]>([]);
     const [isSmartMappingOpen, setIsSmartMappingOpen] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [form, setForm] = useState<SourceFormState>(INITIAL_FORM_STATE);
@@ -144,6 +145,7 @@ export function VendorSourceFormDialog({
 
     useEffect(() => {
         if (open) {
+            setPendingUnmappedFields([]); // Reset pending unmapped fields
             if (sourceId) {
                 fetchSourceDetails(sourceId);
             } else {
@@ -247,10 +249,20 @@ export function VendorSourceFormDialog({
                 rules: form.rules,
             };
 
+            let savedSourceId = sourceId;
             if (mode === "edit" && sourceId) {
                 await api.put(`/vendors/${vendorId}/sources/${sourceId}`, payload);
             } else {
-                await api.post(`/vendors/${vendorId}/sources`, payload);
+                const res = await api.post(`/vendors/${vendorId}/sources`, payload);
+                savedSourceId = res.data.id;
+            }
+
+            // Register unknown fields if any
+            if (pendingUnmappedFields.length > 0 && savedSourceId) {
+                await api.post("/unknown-fields/bulk-register", {
+                    source_id: savedSourceId,
+                    fields: pendingUnmappedFields
+                });
             }
 
             onSuccess();
@@ -694,13 +706,27 @@ export function VendorSourceFormDialog({
             <SmartMappingSheet
                 isOpen={isSmartMappingOpen}
                 onClose={() => setIsSmartMappingOpen(false)}
-                onApply={(rules) => {
-                    updateForm(prev => ({
-                        ...prev,
-                        mapping: {
-                            rules: [...prev.mapping.rules, ...rules]
-                        }
-                    }));
+                onApply={(rules, unmapped) => {
+                    setPendingUnmappedFields(unmapped);
+                    updateForm(prev => {
+                        const existingRules = [...prev.mapping.rules];
+                        rules.forEach(newRule => {
+                            const index = existingRules.findIndex(r => r.source_field === newRule.source_field);
+                            if (index !== -1) {
+                                // Upsert: update target_field, keep default_value etc if any
+                                existingRules[index] = { ...existingRules[index], ...newRule };
+                            } else {
+                                // Add new rule
+                                existingRules.push(newRule as MappingRule);
+                            }
+                        });
+                        return {
+                            ...prev,
+                            mapping: {
+                                rules: existingRules
+                            }
+                        };
+                    });
                 }}
             />
         </>

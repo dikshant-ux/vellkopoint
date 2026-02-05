@@ -39,7 +39,7 @@ interface MappingRule {
 interface SmartMappingSheetProps {
     isOpen: boolean;
     onClose: () => void;
-    onApply: (rules: MappingRule[]) => void;
+    onApply: (rules: MappingRule[], unmappedFields: string[]) => void;
 }
 
 // SYSTEM_FIELDS removed in favor of dynamic fetch
@@ -134,9 +134,17 @@ export function SmartMappingSheet({ isOpen, onClose, onApply }: SmartMappingShee
 
     const handleApply = () => {
         const rules = suggestions
-            .filter(s => s.selected)
-            .map(s => ({ source_field: s.source_field, target_field: s.target_field }));
-        onApply(rules);
+            .filter(s => s.selected && s.target_field)
+            .map(s => ({ source_field: s.source_field, target_field: s.target_field })); // Ensure target_field is not null 
+
+        // Identify unmapped fields:
+        // 1. Not selected
+        // 2. Selected but target is empty/null
+        const unmappedFields = suggestions
+            .filter(s => !s.selected || !s.target_field)
+            .map(s => s.source_field);
+
+        onApply(rules as MappingRule[], unmappedFields);
         onClose();
         setSampleJson("");
         setSuggestions([]);

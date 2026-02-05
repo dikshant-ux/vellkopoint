@@ -375,7 +375,7 @@ export default function CustomerDetailsPage({ params }: { params: Promise<{ id: 
                             setIsDestinationDialogOpen(true);
                         }}>
                             <Globe className="w-4 h-4 mr-2" />
-                            Manage Endpoints
+                            Add Destination Endpoints
                         </Button>
                     )}
                     {canCreateCampaign && (
@@ -475,7 +475,7 @@ export default function CustomerDetailsPage({ params }: { params: Promise<{ id: 
             <div className="bg-white rounded-md border overflow-hidden shadow-sm">
                 <div className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between border-b bg-slate-50/50">
                     <div className="flex flex-col">
-                        <h2 className="text-lg font-semibold text-slate-900 leading-none">Routing Campaigns</h2>
+                        <h2 className="text-lg font-semibold text-slate-900 leading-none">Destination Campaigns</h2>
                         <span className="text-xs text-muted-foreground mt-1">Define how leads are mapped and delivered.</span>
                     </div>
 

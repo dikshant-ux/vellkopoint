@@ -54,3 +54,29 @@ async def map_unknown_field(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+class BulkRegisterRequest(BaseModel):
+    source_id: str
+    fields: List[str]
+
+@router.post("/bulk-register")
+async def bulk_register_unknown_fields(
+    payload: BulkRegisterRequest,
+    current_user: User = Depends(deps.require_permission(Permission.EDIT_SOURCES))
+):
+    """
+    Registers multiple unknown fields at once. 
+    Useful during source creation/editing when Magic Map discovers fields.
+    """
+    try:
+        for field in payload.fields:
+            await UnknownFieldService.track_unknown_field(
+                source_id=payload.source_id,
+                field_name=field,
+                sample_value=None,
+                owner_id=str(current_user.id),
+                tenant_id=current_user.tenant_id
+            )
+        return {"status": "success", "count": len(payload.fields)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
