@@ -33,7 +33,6 @@ interface DestinationFormDialogProps {
             api_key?: string;
             auth_type?: string;
             auth_credentials?: Record<string, string>;
-            auth_credentials?: Record<string, string>;
             headers?: Record<string, string>;
             content_type?: string;
         };
