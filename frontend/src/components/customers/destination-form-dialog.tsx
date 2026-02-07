@@ -33,7 +33,9 @@ interface DestinationFormDialogProps {
             api_key?: string;
             auth_type?: string;
             auth_credentials?: Record<string, string>;
+            auth_credentials?: Record<string, string>;
             headers?: Record<string, string>;
+            content_type?: string;
         };
     } | null;
     onSuccess: () => void;
@@ -51,6 +53,7 @@ export function DestinationFormDialog({
     const [name, setName] = useState("");
     const [url, setUrl] = useState("");
     const [method, setMethod] = useState("POST");
+    const [contentType, setContentType] = useState("json");
     const [apiKey, setApiKey] = useState("");
     const [authType, setAuthType] = useState("none");
     const [authCredentials, setAuthCredentials] = useState<Record<string, string>>({});
@@ -62,6 +65,7 @@ export function DestinationFormDialog({
                 setName(initialData.name);
                 setUrl(initialData.config.url);
                 setMethod(initialData.config.method);
+                setContentType(initialData.config.content_type || "json");
                 setApiKey(initialData.config.api_key || "");
                 setAuthType(initialData.config.auth_type || "none");
                 setAuthCredentials(initialData.config.auth_credentials || {});
@@ -76,6 +80,7 @@ export function DestinationFormDialog({
                 setName("");
                 setUrl("");
                 setMethod("POST");
+                setContentType("json");
                 setApiKey("");
                 setAuthType("none");
                 setAuthCredentials({});
@@ -103,6 +108,7 @@ export function DestinationFormDialog({
                 config: {
                     url: url.trim(),
                     method: method,
+                    content_type: contentType,
                     api_key: apiKey.trim() || undefined,
                     auth_type: authType,
                     auth_credentials: authCredentials,
@@ -176,6 +182,18 @@ export function DestinationFormDialog({
                                     <SelectItem value="GET">GET</SelectItem>
                                     <SelectItem value="PUT">PUT</SelectItem>
                                     <SelectItem value="PATCH">PATCH</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="grid gap-2">
+                            <Label>Content Type</Label>
+                            <Select value={contentType} onValueChange={setContentType}>
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="json">JSON (application/json)</SelectItem>
+                                    <SelectItem value="form">Form Data (x-www-form-urlencoded)</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>

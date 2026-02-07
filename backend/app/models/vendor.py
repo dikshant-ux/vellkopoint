@@ -18,6 +18,7 @@ class SourceConfig(BaseModel):
     dupe_check: bool = False
     dupe_check_days: int = 0  # 0 = never, >0 = days timeframe
     dupe_fields: List[str] = [] # List of fields to check (OR logic by default)
+    duplicate_redirect_source_id: Optional[str] = None # Source ID to redirect dupes to
 
     # Dynamic and Extended Config
     rate: Optional[float] = None

@@ -12,6 +12,7 @@ class DestinationConfig(BaseModel):
     auth_credentials: Dict[str, str] = {}
     timeout: int = 5 # seconds
     api_key: Optional[str] = None
+    content_type: Literal["json", "form"] = "json"
     
 class Destination(Document):
     tenant_id: str

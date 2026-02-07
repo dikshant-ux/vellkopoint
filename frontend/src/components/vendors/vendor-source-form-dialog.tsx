@@ -50,6 +50,7 @@ export interface SourceFormState {
         dupe_field_1: string;
         dupe_field_2: string;
         dupe_field_operator: "or" | "and";
+        duplicate_redirect_source_id: string; // New field
     };
     validation: {
         validation_type: string;
@@ -84,6 +85,7 @@ const INITIAL_FORM_STATE: SourceFormState = {
         dupe_field_1: "",
         dupe_field_2: "",
         dupe_field_operator: "or",
+        duplicate_redirect_source_id: "",
     },
     validation: {
         validation_type: "",
@@ -129,19 +131,72 @@ export function VendorSourceFormDialog({
     // Memoize system fields to prevent re-rendering Select dropdowns
     const memoizedSystemFields = useMemo(() => systemFields, [systemFields]);
 
+    // List of all sources for this vendor (for redirect dropdown)
+    const [availableSources, setAvailableSources] = useState<{ id: string; name: string; redirectId?: string }[]>([]);
+
     useEffect(() => {
-        const fetchFields = async () => {
+        const fetchSystemFieldsAndSources = async () => {
             try {
-                const res = await api.get("/system-fields/");
-                setSystemFields(res.data);
+                const [sysRes, vendorRes] = await Promise.all([
+                    api.get("/system-fields/"),
+                    api.get(`/vendors/${vendorId}`)
+                ]);
+                setSystemFields(sysRes.data);
+
+                // Extract sources from vendor details
+                if (vendorRes.data && vendorRes.data.sources) {
+                    setAvailableSources(vendorRes.data.sources.map((s: any) => ({
+                        id: s.id,
+                        name: s.name,
+                        redirectId: s.config?.duplicate_redirect_source_id
+                    })));
+                }
             } catch (error) {
-                console.error("Failed to fetch system fields", error);
+                console.error("Failed to fetch initial data", error);
             }
         };
-        fetchFields();
-    }, []);
+        fetchSystemFieldsAndSources();
+    }, [vendorId]);
 
     const mode = sourceId ? "edit" : "create";
+
+    // Loop Detection Logic
+    const [redirectLoopError, setRedirectLoopError] = useState<string | null>(null);
+
+    useEffect(() => {
+        const targetId = form.config.duplicate_redirect_source_id;
+        if (!targetId || !sourceId) {
+            setRedirectLoopError(null);
+            return;
+        }
+
+        // Trace the chain
+        let currentId = targetId;
+        const visited = new Set<string>();
+        let loopFound = false;
+
+        // Max depth safety to prevent infinite while loop in browser
+        let steps = 0;
+        while (currentId && steps < 50) {
+            if (currentId === sourceId) {
+                loopFound = true;
+                break;
+            }
+            if (visited.has(currentId)) break; // Loop elsewhere
+            visited.add(currentId);
+
+            const nextSource = availableSources.find(s => s.id === currentId);
+            currentId = nextSource?.redirectId || "";
+            steps++;
+        }
+
+        if (loopFound) {
+            setRedirectLoopError("Configuration Error: This selection creates a circular redirect loop.");
+        } else {
+            setRedirectLoopError(null);
+        }
+
+    }, [form.config.duplicate_redirect_source_id, sourceId, availableSources]);
 
     useEffect(() => {
         if (open) {
@@ -189,6 +244,7 @@ export function VendorSourceFormDialog({
                         dupe_field_1: source.config.dupe_field_1 || "",
                         dupe_field_2: source.config.dupe_field_2 || "",
                         dupe_field_operator: source.config.dupe_field_operator || "or",
+                        duplicate_redirect_source_id: source.config.duplicate_redirect_source_id || "",
                     },
                     validation: {
                         validation_type: source.validation?.validation_type || "",
@@ -213,6 +269,7 @@ export function VendorSourceFormDialog({
 
     const handleSave = async () => {
         if (!form.name.trim()) return;
+        if (redirectLoopError) return; // Prevent save on loop
         try {
             setIsSaving(true);
             const payload = {
@@ -233,6 +290,7 @@ export function VendorSourceFormDialog({
                     dupe_field_1: form.config.dupe_field_1 || null,
                     dupe_field_2: form.config.dupe_field_2 || null,
                     dupe_field_operator: form.config.dupe_field_operator,
+                    duplicate_redirect_source_id: form.config.duplicate_redirect_source_id || null,
                 },
                 validation: {
                     validation_type: form.validation.validation_type || null,
@@ -409,9 +467,61 @@ export function VendorSourceFormDialog({
                                             />
                                         </div>
 
+                                        {/* Duplicate Redirect Dropdown */}
+                                        <div className="grid gap-1.5 pt-2">
+                                            <Label>Redirect Duplicates To (Optional)</Label>
+                                            <p className="text-[10px] text-muted-foreground mb-1">
+                                                If a duplicate is found, redirect it to another source instead of rejecting.
+                                            </p>
+                                            <Select
+                                                value={form.config.duplicate_redirect_source_id || "none"}
+                                                onValueChange={(val) =>
+                                                    updateForm(p => ({ ...p, config: { ...p.config, duplicate_redirect_source_id: val === "none" ? "" : val } }))
+                                                }
+                                            >
+                                                <SelectTrigger className="h-9">
+                                                    <SelectValue placeholder="Select a source..." />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="none" className="text-muted-foreground italic">(Do not redirect)</SelectItem>
+                                                    {availableSources
+                                                        .filter(s => s.id !== sourceId) // Exclude self
+                                                        .map(s => (
+                                                            <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                                                        ))
+                                                    }
+                                                </SelectContent>
+                                            </Select>
+                                            {redirectLoopError && (
+                                                <div className="mt-2 text-destructive text-xs flex items-center gap-1 bg-destructive/10 p-2 rounded">
+                                                    <AlertCircle className="w-3 h-3" />
+                                                    {redirectLoopError}
+                                                </div>
+                                            )}
+                                        </div>
+
                                         {/* Dupe Fields Configuration */}
                                         <div className="space-y-3">
-                                            <Label>Fields to Check for Duplicates</Label>
+                                            <div className="flex items-center justify-between">
+                                                <Label>Fields to Check for Duplicates</Label>
+                                                {/* Operator Toggle */}
+                                                <div className="flex bg-muted/50 p-1 rounded-md text-xs">
+                                                    <button
+                                                        type="button"
+                                                        className={`px-2 py-0.5 rounded-sm transition-all ${form.config.dupe_field_operator === "or" ? "bg-white shadow text-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
+                                                        onClick={() => updateForm(p => ({ ...p, config: { ...p.config, dupe_field_operator: "or" } }))}
+                                                    >
+                                                        Match Any (OR)
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className={`px-2 py-0.5 rounded-sm transition-all ${form.config.dupe_field_operator === "and" ? "bg-white shadow text-foreground font-medium" : "text-muted-foreground hover:text-foreground"}`}
+                                                        onClick={() => updateForm(p => ({ ...p, config: { ...p.config, dupe_field_operator: "and" } }))}
+                                                    >
+                                                        Match All (AND)
+                                                    </button>
+                                                </div>
+                                            </div>
                                             <div className="flex flex-wrap gap-2">
                                                 {form.config.dupe_fields?.map((field, index) => (
                                                     <div key={index} className="flex items-center gap-1 bg-purple-50 border border-purple-200 text-purple-700 px-2 py-1 rounded-md text-sm">
@@ -456,7 +566,7 @@ export function VendorSourceFormDialog({
                                                 </div>
                                             </div>
                                             <p className="text-[10px] text-muted-foreground">
-                                                * Leads matching ANY of these fields will be considered duplicates.
+                                                * {form.config.dupe_field_operator === "or" ? "Leads matching ANY of these fields will be considered duplicates." : "Leads must match ALL of these fields to be considered duplicates."}
                                             </p>
                                         </div>
                                     </div>
@@ -695,13 +805,13 @@ export function VendorSourceFormDialog({
                                 </div>
                             </div>
 
-                            <Button onClick={handleSave} className="w-full" disabled={isSaving}>
+                            <Button onClick={handleSave} className="w-full" disabled={isSaving || !!redirectLoopError}>
                                 {isSaving ? "Saving..." : "Save Source"}
                             </Button>
                         </div>
                     )}
                 </DialogContent>
-            </Dialog>
+            </Dialog >
 
             <SmartMappingSheet
                 isOpen={isSmartMappingOpen}

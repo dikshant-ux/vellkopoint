@@ -154,21 +154,49 @@ class RoutingEngine:
                 config = destination.config
                 
                 # Setup request
-                request_args = {
-                    "method": config.method,
-                    "url": config.url,
-                    "headers": config.headers,
-                    "json": outbound_data,
+                req_kwargs = {
+                    "headers": config.headers.copy(),
                     "timeout": config.timeout
                 }
-                
-                # Future: Map auth_credentials to Bearer/Basic headers
+
+                # Determine how to send data
+                if config.method == "GET":
+                    req_kwargs["params"] = outbound_data
+                elif config.content_type == "form":
+                    req_kwargs["data"] = outbound_data
+                else:
+                    req_kwargs["json"] = outbound_data
+
+                # Authentication handling (basic/bearer)
                 if config.auth_type == "bearer" and "token" in config.auth_credentials:
-                    request_args["headers"]["Authorization"] = f"Bearer {config.auth_credentials['token']}"
+                    req_kwargs["headers"]["Authorization"] = f"Bearer {config.auth_credentials['token']}"
                 elif config.auth_type == "basic" and "username" in config.auth_credentials:
-                    request_args["auth"] = (config.auth_credentials["username"], config.auth_credentials.get("password", ""))
+                    req_kwargs["auth"] = (config.auth_credentials["username"], config.auth_credentials.get("password", ""))
+
+                # Log before sending
+                if config.method == "GET":
+                    # Correctly merge params for logging and request
+                    url_obj = httpx.URL(config.url)
+                    merged_params = url_obj.params.merge(outbound_data)
+                    final_url = url_obj.copy_with(params=merged_params)
+                    
+                    # Update req_kwargs to use the merged params with the clean base URL
+                    # This ensures what we log is exactly what we send
+                    req_kwargs["params"] = merged_params
+                    # We strip the query from the URL passed to request() since we pass it in params
+                    # actually httpx handles it, but explicit is better for clarity here
+                    
+                    logger.info(f"Delivering to campaign {campaign.name} [GET] - Full URL: {final_url}")
+                else:
+                    logger.info(f"Delivering to campaign {campaign.name} [{config.method}] - URL: {config.url}")
+                    logger.info(f"Payload ({config.content_type}): {outbound_data}")
                 
-                response = await client.request(**request_args)
+                # If we merged params manually for GET, we strictly don't need to change config.url passed to client,
+                # but to avoid double-merging confusion (though safe), let's just rely on httpx merging behavior 
+                # OR pass the already param-stripped URL. 
+                # Safest: Use config.url (httpx merges) and just trust our log which uses .merge() logic consistent with httpx.
+                
+                response = await client.request(config.method, config.url, **req_kwargs)
                 response.raise_for_status()
                 
         except Exception as e:

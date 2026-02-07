@@ -394,8 +394,13 @@ async def reset_password(data: ResetPassword):
     if not user:
         raise HTTPException(status_code=400, detail="Invalid or expired reset token")
     
-    if user.reset_password_token_expires_at and user.reset_password_token_expires_at < datetime.now(timezone.utc):
-        raise HTTPException(status_code=400, detail="Reset token expired")
+    if user.reset_password_token_expires_at:
+        expires_at = user.reset_password_token_expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+            
+        if expires_at < datetime.now(timezone.utc):
+            raise HTTPException(status_code=400, detail="Reset token expired")
         
     user.hashed_password = security.get_password_hash(data.new_password)
     user.reset_password_token = None

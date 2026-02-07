@@ -24,6 +24,35 @@ class ProcessingEngine:
         # 3. Duplicate Check
         dupe_error = await ProcessingEngine.check_duplicate(normalized_data, source)
         if dupe_error:
+            # Check for Duplicate Redirect Strategy
+            if source.config.duplicate_redirect_source_id:
+                history = payload.get("_redirect_history", [])
+                
+                # Loop Protection: Don't redirect if we've already been there OR if circular
+                if source.config.duplicate_redirect_source_id not in history and source.id not in history:
+                    try:
+                        # Circular import avoidance
+                        from app.tasks.lead_tasks import process_lead_task
+                        
+                        new_payload = payload.copy()
+                        new_history = history + [source.id]
+                        new_payload["_redirect_history"] = new_history
+                        new_payload["_diverted_from"] = source.id
+                        
+                        # Dispatch task for the target source
+                        # Assuming same vendor/owner/tenant
+                        process_lead_task.delay(
+                            payload=new_payload,
+                            source_id=source.config.duplicate_redirect_source_id,
+                            vendor_id=vendor_id if vendor_id else "unknown", # Best effort if not passed
+                            owner_id=owner_id,
+                            tenant_id=tenant_id
+                        )
+                        
+                        dupe_error = f"Duplicate - Diverted to {source.config.duplicate_redirect_source_id}"
+                    except Exception as e:
+                        print(f"Failed to redirect duplicate: {e}")
+                        
             normalized_data["_rejected"] = True
             normalized_data["_rejection_reason"] = dupe_error
 
@@ -91,7 +120,10 @@ class ProcessingEngine:
         if not query_conditions:
             return None
             
-        main_query = {"$or": query_conditions, "source_id": source.id}
+        operator = source.config.dupe_field_operator or "or"
+        mongo_op = "$or" if operator == "or" else "$and"
+        
+        main_query = {mongo_op: query_conditions, "source_id": source.id}
         
         if source.config.dupe_check_days > 0:
             start_time = datetime.now() - timedelta(days=source.config.dupe_check_days)
@@ -195,12 +227,37 @@ class ProcessingEngine:
                     mapped_source_fields.add(key)
                     await UnknownFieldService.track_unknown_field(source_id, key, value, owner_id, tenant_id)
 
+        # Prepare normalized payload map for smart fallback
+        # Key: normalized key, Value: original key
+        # We only build this if necessary to save perf, but for simplicity/safety we build once
+        normalized_payload = {}
+        for k in payload.keys():
+            normalized_payload[k.lower().replace("_", "").replace(" ", "")] = k
+
         for rule in mapping.rules:
+            # 1. Exact Match
             val = payload.get(rule.source_field)
+            
+            # 2. Smart Match Fallback
+            if val is None:
+                # Try to finding via normalized key
+                search_key_norm = rule.source_field.lower().replace("_", "").replace(" ", "")
+                found_key = normalized_payload.get(search_key_norm)
+                if found_key:
+                    val = payload[found_key]
+            
+            # 3. Default Value
             if val is None and rule.default_value:
                 val = rule.default_value
+            
+            # 4. Apply to Result
             if val is not None and rule.target_field:
                 result[rule.target_field] = val
+            elif rule.is_required:
+                # Log warning or track missing field
+                # For now just print/log, but we don't block unless we implement strict mode
+                # In strict mode we might raise an error or mark lead as rejected
+                pass
         
         return result
 

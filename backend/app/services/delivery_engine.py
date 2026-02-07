@@ -26,12 +26,21 @@ class DeliveryEngine:
             
         try:
             async with httpx.AsyncClient(timeout=config.timeout) as client:
+                req_kwargs = {"headers": headers}
+                
+                # Determine body format
+                if config.content_type == "form":
+                    req_kwargs["data"] = payload
+                    # httpx sets content-type to application/x-www-form-urlencoded automatically when 'data' is used
+                else:
+                    req_kwargs["json"] = payload
+
                 if method == "POST":
-                    response = await client.post(url, json=payload, headers=headers)
+                    response = await client.post(url, **req_kwargs)
                 elif method == "GET":
                     response = await client.get(url, params=payload, headers=headers)
                 elif method == "PUT":
-                    response = await client.put(url, json=payload, headers=headers)
+                    response = await client.put(url, **req_kwargs)
                 else:
                     raise ValueError(f"Unsupported method {method}")
                     
